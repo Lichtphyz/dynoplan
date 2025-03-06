@@ -129,7 +129,7 @@ bool execute_optimizationMetaRobot(
         << std::endl;
   }
 
-  options_trajopt.solver_id = 1; // time optimal solution
+  options_trajopt.solver_id = 1; // time-optimal trajectory
   options_trajopt.control_bounds = 1;
   options_trajopt.use_warmstart = 1;
   options_trajopt.weight_goal = 100;
