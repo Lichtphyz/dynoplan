@@ -1096,7 +1096,8 @@ void __trajectory_optimization(
   std::vector<Eigen::VectorXd> xs_init__ = xs_init;
 
   if (startsWith(problem.robotType, "quad3d") &&
-      !startsWith(problem.robotType, "quad3dpayload")) {
+      !startsWith(problem.robotType, "quad3dpayload") &&
+      !startsWith(problem.robotType, "quad3d_coupled")) {
     DYNO_CHECK_EQ(start.size(), 13, "");
     DYNO_CHECK_EQ(goal.size(), 13, "");
     fix_problem_quaternion(start, goal, xs_init, us_init);

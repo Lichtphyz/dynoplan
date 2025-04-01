@@ -29,7 +29,7 @@
 using namespace dynoplan;
 using namespace dynobench;
 
-// #define DYNOBENCH_BASE "../../dynobench/dynobench/"
+// #define DYNOBENCH_BASE "../dynobench/" // debug mode
 #define DYNOBENCH_BASE "../../dynobench/"
 
 BOOST_AUTO_TEST_CASE(t_multi_robot_cli) {
@@ -1571,4 +1571,39 @@ BOOST_AUTO_TEST_CASE(t_drone24c_res) {
       index_time_goals);
 
   multi_out.to_yaml_format("/tmp/test_drone24c_res_solution.yaml");
+}
+
+// multi-UAV scenario
+BOOST_AUTO_TEST_CASE(t_empty_quadrotors_coupled) {
+
+  Options_trajopt options_trajopt;
+  std::string env_file =
+      DYNOBENCH_BASE "envs/multirobot/example/empty_quadrotors_joint.yaml";
+  std::string initial_guess_file =
+      DYNOBENCH_BASE "envs/multirobot/results/empty_quadrotors_joint.yaml";
+
+  Problem problem(env_file);
+  Trajectory init_guess(initial_guess_file);
+
+  options_trajopt.solver_id = 1;
+  // options_trajopt.control_bounds = 1;
+  // options_trajopt.use_warmstart = 1;
+  options_trajopt.weight_goal = 200;
+  options_trajopt.max_iter = 100;
+  problem.models_base_path =
+      "/home/akmarak-laptop/IMRC/db-CBS/dynoplan/dynobench/models/";
+
+  Result_opti result;
+  Trajectory sol;
+  trajectory_optimization(problem, init_guess, options_trajopt, sol, result);
+  BOOST_TEST_CHECK(result.feasible);
+  std::cout << "cost is " << result.cost << std::endl;
+
+  std::vector<int> index_time_goals{sol.states.size(), sol.states.size()};
+  std::vector<int> nxs{13, 13};
+  std::vector<int> nus{4, 4};
+  MultiRobotTrajectory multi_out =
+      from_joint_to_indiv_trajectory(sol, nxs, nus, index_time_goals);
+
+  multi_out.to_yaml_format("/tmp/empty_quadrotors_coupled_opt.yaml");
 }
