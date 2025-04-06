@@ -510,6 +510,69 @@ struct Quaternion_cost : Cost {
                         const Eigen::Ref<const Eigen::VectorXd> &u) override;
 };
 
+// for the coupled UAV
+struct Quaternion_cost_coupled : Cost {
+
+  double k_quat = 1.;
+
+  Quaternion_cost_coupled(size_t nx, size_t nu);
+
+  virtual ~Quaternion_cost_coupled() = default;
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x) override;
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x,
+                    const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        const Eigen::Ref<const Eigen::VectorXd> &x) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::VectorXd> Lu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        Eigen::Ref<Eigen::MatrixXd> Luu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxu,
+                        const Eigen::Ref<const Eigen::VectorXd> &x,
+                        const Eigen::Ref<const Eigen::VectorXd> &u) override;
+};
+
+struct Quad3d_coupled_acceleration_cost : Cost {
+
+  using Vector12d = Eigen::Matrix<double, 12, 1>;
+  using Vector24d = Eigen::Matrix<double, 24, 1>;
+
+  std::shared_ptr<dynobench::Model_robot> model;
+
+  double k_acc = 1;
+  Vector24d f;
+  Vector12d acc;
+  Eigen::Matrix<double, 12, 8> acc_u;  // acc w.r.t actions
+  Eigen::Matrix<double, 12, 26> acc_x; // acc w.r.t states
+
+  Eigen::Matrix<double, 24, 26> Jv_x;
+  Eigen::Matrix<double, 24, 8> Jv_u;
+
+  Quad3d_coupled_acceleration_cost(
+      const std::shared_ptr<dynobench::Model_robot> &model_robot);
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x,
+                    const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::VectorXd> Lu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        Eigen::Ref<Eigen::MatrixXd> Luu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxu,
+                        const Eigen::Ref<const Eigen::VectorXd> &x,
+                        const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual ~Quad3d_coupled_acceleration_cost() = default;
+};
+
 struct Diff_angle_cost : Cost {
 
   double k_diff_angle = 20.;

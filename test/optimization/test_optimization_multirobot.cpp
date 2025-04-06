@@ -1577,10 +1577,15 @@ BOOST_AUTO_TEST_CASE(t_drone24c_res) {
 BOOST_AUTO_TEST_CASE(t_empty_quadrotors_coupled) {
 
   Options_trajopt options_trajopt;
+  // std::string env_file =
+  // DYNOBENCH_BASE "envs/multirobot/example/empty_quadrotors_joint.yaml";
+  // std::string initial_guess_file =
+  // DYNOBENCH_BASE "envs/multirobot/results/empty_quadrotors_joint.yaml";
+  // swap example
   std::string env_file =
-      DYNOBENCH_BASE "envs/multirobot/example/empty_quadrotors_joint.yaml";
+      DYNOBENCH_BASE "envs/multirobot/example/swap_quadrotors_coupled.yaml";
   std::string initial_guess_file =
-      DYNOBENCH_BASE "envs/multirobot/results/empty_quadrotors_joint.yaml";
+      DYNOBENCH_BASE "envs/multirobot/results/swap_quadrotors_coupled.yaml";
 
   Problem problem(env_file);
   Trajectory init_guess(initial_guess_file);
@@ -1588,7 +1593,7 @@ BOOST_AUTO_TEST_CASE(t_empty_quadrotors_coupled) {
   options_trajopt.solver_id = 1;
   // options_trajopt.control_bounds = 1;
   // options_trajopt.use_warmstart = 1;
-  options_trajopt.weight_goal = 200;
+  options_trajopt.weight_goal = 100;
   options_trajopt.max_iter = 100;
   problem.models_base_path =
       "/home/akmarak-laptop/IMRC/db-CBS/dynoplan/dynobench/models/";

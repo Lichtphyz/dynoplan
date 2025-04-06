@@ -242,7 +242,8 @@ generate_problem(const Generate_params &gen_args,
       feats_run.push_back(state_feature);
     }
     if (startsWith(gen_args.name, "quad3d") &&
-        !startsWith(gen_args.name, "quad3dpayload")) {
+        !startsWith(gen_args.name, "quad3dpayload") &&
+        !startsWith(gen_args.name, "quad3d_coupled")) {
       if (control_mode == Control_Mode::default_mode) {
         std::cout << "adding regularization on w and v, q" << std::endl;
         Vxd state_weights(13);
@@ -292,6 +293,73 @@ generate_problem(const Generate_params &gen_args,
         feats_run.push_back(quat_feature);
       }
     }
+    if (startsWith(gen_args.name, "quad3d_coupled")) {
+      if (control_mode == Control_Mode::default_mode) {
+        std::cout << "adding regularization on w and v, q" << std::endl;
+        Vxd state_weights(26); // robot 1, robot 2
+        state_weights.setOnes();
+        state_weights *= 0.01;
+        // robot 1
+        state_weights.segment(0, 3).setZero();
+        state_weights.segment(3, 4).setConstant(0.1);
+        // robot 2
+        state_weights.segment(13, 3).setZero();
+        state_weights.segment(16, 4).setConstant(0.1);
+
+        Vxd state_ref = Vxd::Zero(26); // robot 1, robot 2
+        state_ref(6) = 1.;
+        state_ref(19) = 1.;
+
+        ptr<Cost> state_feature =
+            mk<State_cost>(nx, nu, nx, state_weights, state_ref);
+        feats_run.push_back(state_feature);
+
+        std::cout << "adding cost on quaternion norm" << std::endl;
+        ptr<Cost> quat_feature = mk<Quaternion_cost_coupled>(nx, nu);
+        boost::static_pointer_cast<Quaternion_cost_coupled>(quat_feature)
+            ->k_quat = 1.;
+        feats_run.push_back(quat_feature);
+
+        std::cout << "adding regularization on acceleration coupled"
+                  << std::endl;
+        ptr<Cost> acc_feature =
+            mk<Quad3d_coupled_acceleration_cost>(gen_args.model_robot);
+        boost::static_pointer_cast<Quad3d_coupled_acceleration_cost>(
+            acc_feature)
+            ->k_acc = .005;
+
+        feats_run.push_back(acc_feature);
+
+      } else if (control_mode == Control_Mode::contour) {
+        std::cout << "adding regularization on w and v, q" << std::endl;
+        Vxd state_weights(28);
+        state_weights.setOnes();
+        state_weights *= 0.05;
+        // robot 1
+        state_weights.segment(0, 3).setZero();
+        state_weights.segment(3, 4).setConstant(0.1);
+        state_weights(13) = 0;
+        // robot 2
+        state_weights.segment(13, 3).setZero();
+        state_weights.segment(16, 4).setConstant(0.1);
+        state_weights(27) = 0;
+
+        Vxd state_ref = Vxd::Zero(28);
+        state_ref(6) = 1.;
+        state_ref(17) = 1.;
+
+        ptr<Cost> state_feature =
+            mk<State_cost>(nx, nu, nx, state_weights, state_ref);
+        feats_run.push_back(state_feature);
+
+        std::cout << "adding cost on quaternion norm coupled" << std::endl;
+        ptr<Cost> quat_feature = mk<Quaternion_cost_coupled>(nx, nu);
+        boost::static_pointer_cast<Quaternion_cost_coupled>(quat_feature)
+            ->k_quat = 1.;
+        feats_run.push_back(quat_feature);
+      }
+    }
+
     if (startsWith(gen_args.name, "quad3d_v5") && t == gen_args.N / 2 + 1) {
       std::cout << "adding special waypoint" << std::endl;
       Vxd state_weights(13);

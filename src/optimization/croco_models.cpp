@@ -520,7 +520,7 @@ Col_cost::Col_cost(size_t nx, size_t nu, size_t nr,
   last_x = Vxd::Ones(nx);
   name = "collision";
   nx_effective = nx;
-
+  std::cout << "nx_effective inside Col_cost: " << nx_effective << std::endl;
   Jx.resize(1, nx);
   Jx.setZero();
 
@@ -1591,6 +1591,120 @@ void Quad3d_acceleration_cost::calcDiff(
   // CSTR_(Lu);
   Lu += k_acc_sq * acc.transpose() * acc_u;
   // CSTR_(Lu);
+
+  Lxx += k_acc_sq * acc_x.transpose() * acc_x;
+  Luu += k_acc_sq * acc_u.transpose() * acc_u;
+  Lxu += k_acc_sq * acc_x.transpose() * acc_u;
+}
+
+// for the coupled UAV, robot1 robot 2 concatenation
+Quaternion_cost_coupled::Quaternion_cost_coupled(size_t nx, size_t nu)
+    : Cost(nx, nu, /*nr*/ 1) {
+  name = "quaterion norm coupled";
+};
+
+void Quaternion_cost_coupled::calc(Eigen::Ref<Eigen::VectorXd> r,
+                                   const Eigen::Ref<const Eigen::VectorXd> &x) {
+  DYNO_CHECK_GEQ(k_quat, 0., AT);
+
+  check_input_calc(r, x);
+  // robot 1
+  Eigen::Vector4d q = x.segment<4>(3);
+  r(0) = k_quat * (q.squaredNorm() - 1);
+  // robot 2
+  Eigen::Vector4d q2 = x.segment<4>(16);
+  r(0) += k_quat * (q2.squaredNorm() - 1); // oenalizing the sum of q1, q2 norms
+}
+
+void Quaternion_cost_coupled::calc(Eigen::Ref<Eigen::VectorXd> r,
+                                   const Eigen::Ref<const Eigen::VectorXd> &x,
+                                   const Eigen::Ref<const Eigen::VectorXd> &u) {
+  check_input_calc(r, x, u);
+  calc(r, x);
+}
+
+void Quaternion_cost_coupled::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::MatrixXd> Lxx,
+    const Eigen::Ref<const Eigen::VectorXd> &x) {
+  // Lx - first derivative w.r.t states, 26x1 size
+  // Lxx - Hessian matrix/second derivative w.r.t states, it will be 26x26 size
+  // for coupled robots robot 1
+  Eigen::Vector4d q = x.segment<4>(3);
+  Lx.segment<4>(3) += k_quat * (q.squaredNorm() - 1.) * 2. * k_quat * q;
+  Lxx.block<4, 4>(3, 3) += (2. * 2. * k_quat * k_quat) * q * q.transpose();
+  // robot 2
+  Eigen::Vector4d q2 = x.segment<4>(16);
+  Lx.segment<4>(16) += k_quat * (q2.squaredNorm() - 1.) * 2. * k_quat * q2;
+  Lxx.block<4, 4>(16, 16) += (2. * 2. * k_quat * k_quat) * q2 * q2.transpose();
+}
+
+void Quaternion_cost_coupled::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::VectorXd> Lu,
+    Eigen::Ref<Eigen::MatrixXd> Lxx, Eigen::Ref<Eigen::MatrixXd> Luu,
+    Eigen::Ref<Eigen::MatrixXd> Lxu, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+  (void)Lu;
+  (void)Luu;
+  (void)Luu;
+  (void)Lxu;
+  (void)u;
+
+  calcDiff(Lx, Lxx, x);
+}
+
+// for the coupled UAVs, robot 1 robot 2 concatenation
+Quad3d_coupled_acceleration_cost::Quad3d_coupled_acceleration_cost(
+    const std::shared_ptr<dynobench::Model_robot> &model_robot)
+    : Cost(26, 8, /*nr*/ 12), model(model_robot) {
+  name = "accel_quad3d";
+
+  acc_u.setZero();
+  acc_x.setZero();
+  Jv_x.setZero();
+  Jv_u.setZero();
+  f.setZero();
+}
+
+void Quad3d_coupled_acceleration_cost::calc(
+    Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+  model->calcV(f, x, u);           // f has 24x1 for both robots
+  acc.head<6>() = f.head<6>();     // robot 1
+  acc.segment<6>(6) = f.tail<6>(); // robot2
+  r = k_acc * acc;                 // 12x1
+}
+
+void Quad3d_coupled_acceleration_cost::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::VectorXd> Lu,
+    Eigen::Ref<Eigen::MatrixXd> Lxx, Eigen::Ref<Eigen::MatrixXd> Luu,
+    Eigen::Ref<Eigen::MatrixXd> Lxu, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+
+  model->calcV(f, x, u);              // f has 24x1 for both robots
+  acc.head<6>() = f.head<6>();        // robot 1
+  acc.segment<6>(6) = f.tail<6>();    // robot 2
+  model->calcDiffV(Jv_x, Jv_u, x, u); // Jv_x = 24x26, Jv_u = 24x8
+
+  DYNO_CHECK_EQ(f.size(), 24, AT);
+  DYNO_CHECK_EQ(acc.size(), 12, AT);
+  DYNO_CHECK_EQ(Jv_x.cols(), 26, AT);
+  DYNO_CHECK_EQ(Jv_u.cols(), 8, AT);
+
+  DYNO_CHECK_EQ(Jv_x.rows(), 24, AT);
+  DYNO_CHECK_EQ(Jv_u.rows(), 24, AT);
+
+  acc_x.block<6, 13>(0, 0) = Jv_x.block<6, 13>(6, 0); // acc w.r.t states
+  acc_x.block<6, 13>(6, 13) = Jv_x.block<6, 13>(18, 13);
+
+  acc_u.block<6, 4>(0, 0) = Jv_u.block<6, 4>(6, 0);
+  acc_u.block<6, 4>(6, 4) = Jv_u.block<6, 4>(18, 4); // acc w.r.t actions
+
+  // acc - robot 1, robot 2
+  // acc_x - robot 1, robot 2
+  // acc_y - robot 1, robot
+  double k_acc_sq = k_acc * k_acc;
+  Lx += k_acc_sq * acc.transpose() * acc_x;
+  Lu += k_acc_sq * acc.transpose() * acc_u;
 
   Lxx += k_acc_sq * acc_x.transpose() * acc_x;
   Luu += k_acc_sq * acc_u.transpose() * acc_u;
