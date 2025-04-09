@@ -118,24 +118,69 @@ generate_problem(const Generate_params &gen_args,
       CSTR_(gen_args.N);
 
       if (goal_times.size()) {
-        Eigen::VectorXd weights = Eigen::VectorXd::Zero(nx);
-        for (size_t j = 0; j < goal_times.size(); j++) {
-          if (goal_times.at(j) <= t + 1) {
-            size_t start_index = std::accumulate(
-                ptr_derived->nxs.begin(), ptr_derived->nxs.begin() + j, 0);
-            size_t nx = ptr_derived->nxs.at(j);
-            weights.segment(start_index, nx).setOnes();
+        // first consider homogeneous quadrotors case
+        // quaternion and acceleration costs are needed for quad3d joint robots.
+        // For now, only homogeneous case!
+        bool homog_quad3d = std::all_of(
+            ptr_derived->v_jointRobot.begin(), ptr_derived->v_jointRobot.end(),
+            [](const auto &robot) { return robot->name == "quad3d"; });
+        if (homog_quad3d) {
+          if (control_mode == Control_Mode::default_mode) {
+            std::cout << "adding regularization on w and v, q" << std::endl;
+            Vxd state_weights(ptr_derived->total_nxs);
+            Vxd state_ref = Vxd::Zero(ptr_derived->total_nxs);
+            state_weights.setOnes();
+            state_weights *= 0.01;
+            for (size_t j = 0; j < goal_times.size(); j++) { // each quad3d
+              state_weights.segment(j * 13, 3).setZero();
+              state_weights.segment(j * 13 + 3, 4).setConstant(0.1);
+              state_ref(j * 13 + 6) = 1.;
+            }
+
+            ptr<Cost> state_feature =
+                mk<State_cost>(nx, nu, nx, state_weights, state_ref);
+            feats_run.push_back(state_feature);
+
+            std::cout
+                << "adding cost on quaternion norm (homogeneous quadrotors)"
+                << std::endl;
+            ptr<Cost> quat_feature = mk<Joint_quad3d_quaternion_cost>(
+                nx, nu, /*robot_num*/ goal_times.size());
+            boost::static_pointer_cast<Joint_quad3d_quaternion_cost>(
+                quat_feature)
+                ->k_quat = 1.;
+            feats_run.push_back(quat_feature);
+
+            std::cout << "adding regularization on acceleration (homogeneous "
+                         "quadrotors)"
+                      << std::endl;
+            ptr<Cost> acc_feature = mk<Joint_quad3d_acceleration_cost>(
+                gen_args.model_robot, nx, nu, /*na*/ 6 * goal_times.size(),
+                /*robot_num*/ goal_times.size());
+            boost::static_pointer_cast<Joint_quad3d_acceleration_cost>(
+                acc_feature)
+                ->k_acc = .005;
+
+            feats_run.push_back(acc_feature);
           }
-        }
-
-        if (weights.sum() > 1e-12) {
-          std::cout << "warning, adding special goal cost" << std::endl;
-          ptr<Cost> state_feature = mk<State_cost_model>(
-              gen_args.model_robot, nx, nu,
-              gen_args.penalty * options_trajopt.weight_goal * weights,
-              gen_args.goal);
-
-          feats_run.emplace_back(state_feature);
+        } else {
+          Eigen::VectorXd weights = Eigen::VectorXd::Zero(nx);
+          for (size_t j = 0; j < goal_times.size(); j++) {
+            if (goal_times.at(j) <= t + 1) {
+              size_t start_index = std::accumulate(
+                  ptr_derived->nxs.begin(), ptr_derived->nxs.begin() + j, 0);
+              size_t nx = ptr_derived->nxs.at(j);
+              weights.segment(start_index, nx).setOnes();
+            }
+          }
+          if (weights.sum() > 1e-12) {
+            std::cout << "warning, adding special goal cost" << std::endl;
+            ptr<Cost> state_feature = mk<State_cost_model>(
+                gen_args.model_robot, nx, nu,
+                gen_args.penalty * options_trajopt.weight_goal * weights,
+                gen_args.goal);
+            feats_run.emplace_back(state_feature);
+          }
         }
       }
     }
@@ -346,7 +391,8 @@ generate_problem(const Generate_params &gen_args,
 
         Vxd state_ref = Vxd::Zero(28);
         state_ref(6) = 1.;
-        state_ref(17) = 1.;
+        state_ref(19) =
+            1.; // double check, since the dimension is 14 for a single robot
 
         ptr<Cost> state_feature =
             mk<State_cost>(nx, nu, nx, state_weights, state_ref);

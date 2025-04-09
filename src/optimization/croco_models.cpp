@@ -1142,14 +1142,16 @@ void __calc_diff(std::shared_ptr<dynobench::Model_robot> robot_model,
   } else if (control_mode == Control_Mode::free_time_linear) {
     DYNO_CHECK_GE(u(robot_model->nu), 0, AT);
     DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
-    if (!startsWith(robot_model->name, "quad3d")) {
+    if (!startsWith(robot_model->name, "quad3d") &&
+        !startsWith(robot_model->name, "joint_robot")) {
       robot_model->stepDiff_with_v(Fx.block(0, 0, _nx, _nx),
                                    Fu.block(0, 0, _nx, _nu), __v, x.head(_nx),
                                    u.head(_nu), dt * u(_nu));
       Fu.block(0, _nu, _nx, 1) = __v * dt;
       Fu(_nx, _nu) = 1.;
       DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
-    } else {
+    } else // joint-robot handles each robot with corresponding stepDiff
+    {
       robot_model->stepDiff(Fx.block(0, 0, _nx, _nx), Fu.block(0, 0, _nx, _nu),
                             x.head(_nx), u.head(_nu), dt * u(_nu));
       Eigen::VectorXd dd = derivate_wrt_time(*robot_model, x, u, dt);
@@ -1157,12 +1159,14 @@ void __calc_diff(std::shared_ptr<dynobench::Model_robot> robot_model,
       Fu(_nx, _nu) = 1.;
     }
   } else if (control_mode == Control_Mode::free_time) {
-    if (!startsWith(robot_model->name, "quad3d")) {
+    if (!startsWith(robot_model->name, "quad3d") &&
+        !startsWith(robot_model->name, "joint_robot")) {
       robot_model->stepDiff_with_v(Fx, Fu.block(0, 0, _nx, _nu), __v, x,
                                    u.head(_nu), dt * u(_nu));
       DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
       Fu.col(_nu) = __v * dt;
-    } else {
+    } else // joint robot calls corresponding stepDiff for each robot
+    {
       robot_model->stepDiff(Fx.block(0, 0, _nx, _nx), Fu.block(0, 0, _nx, _nu),
                             x.head(_nx), u.head(_nu), dt * u(_nu));
       Eigen::VectorXd dd = derivate_wrt_time(*robot_model, x, u, dt);
@@ -1669,7 +1673,7 @@ void Quad3d_coupled_acceleration_cost::calc(
     Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
     const Eigen::Ref<const Eigen::VectorXd> &u) {
   model->calcV(f, x, u);           // f has 24x1 for both robots
-  acc.head<6>() = f.head<6>();     // robot 1
+  acc.head<6>() = f.segment<6>(6); // robot 1
   acc.segment<6>(6) = f.tail<6>(); // robot2
   r = k_acc * acc;                 // 12x1
 }
@@ -1681,8 +1685,8 @@ void Quad3d_coupled_acceleration_cost::calcDiff(
     const Eigen::Ref<const Eigen::VectorXd> &u) {
 
   model->calcV(f, x, u);              // f has 24x1 for both robots
-  acc.head<6>() = f.head<6>();        // robot 1
-  acc.segment<6>(6) = f.tail<6>();    // robot 2
+  acc.head<6>() = f.segment<6>(6);    // robot 1
+  acc.segment<6>(6) = f.tail<6>();    // robot2
   model->calcDiffV(Jv_x, Jv_u, x, u); // Jv_x = 24x26, Jv_u = 24x8
 
   DYNO_CHECK_EQ(f.size(), 24, AT);
@@ -1702,6 +1706,134 @@ void Quad3d_coupled_acceleration_cost::calcDiff(
   // acc - robot 1, robot 2
   // acc_x - robot 1, robot 2
   // acc_y - robot 1, robot
+  double k_acc_sq = k_acc * k_acc;
+  Lx += k_acc_sq * acc.transpose() * acc_x;
+  Lu += k_acc_sq * acc.transpose() * acc_u;
+
+  Lxx += k_acc_sq * acc_x.transpose() * acc_x;
+  Luu += k_acc_sq * acc_u.transpose() * acc_u;
+  Lxu += k_acc_sq * acc_x.transpose() * acc_u;
+}
+
+// Joint robots - homogeneous UAVs only!!!
+Joint_quad3d_quaternion_cost::Joint_quad3d_quaternion_cost(size_t nx, size_t nu,
+                                                           size_t robot_n)
+    : Cost(nx, nu, /*nr*/ 1), robot_num(robot_n) {
+  name = "quaterion norm homogeneous quadrotors";
+};
+
+void Joint_quad3d_quaternion_cost::calc(
+    Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x) {
+  DYNO_CHECK_GEQ(k_quat, 0., AT);
+  check_input_calc(r, x);
+  for (size_t j = 0; j < robot_num; j++) {
+    Eigen::Vector4d q = x.segment<4>(13 * j + 3);
+    r(0) += k_quat * (q.squaredNorm() - 1); // get the sum for all robots
+  }
+}
+
+void Joint_quad3d_quaternion_cost::calc(
+    Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+  check_input_calc(r, x, u);
+  calc(r, x);
+}
+
+void Joint_quad3d_quaternion_cost::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::MatrixXd> Lxx,
+    const Eigen::Ref<const Eigen::VectorXd> &x) {
+  // Lx - first derivative w.r.t states, (13xn)x1 size
+  // Lxx - Hessian matrix/second derivative w.r.t states, it will be
+  // (13xn)x(13xn) size
+  for (size_t j = 0; j < robot_num; j++) {
+    Eigen::Vector4d q = x.segment<4>(13 * j + 3);
+    Lx.segment<4>(13 * j + 3) +=
+        k_quat * (q.squaredNorm() - 1.) * 2. * k_quat * q;
+    Lxx.block<4, 4>(13 * j + 3, 13 * j + 3) +=
+        (2. * 2. * k_quat * k_quat) * q * q.transpose();
+  }
+}
+
+void Joint_quad3d_quaternion_cost::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::VectorXd> Lu,
+    Eigen::Ref<Eigen::MatrixXd> Lxx, Eigen::Ref<Eigen::MatrixXd> Luu,
+    Eigen::Ref<Eigen::MatrixXd> Lxu, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+  (void)Lu;
+  (void)Luu;
+  (void)Luu;
+  (void)Lxu;
+  (void)u;
+
+  calcDiff(Lx, Lxx, x);
+}
+// Joint quadrotors acceleration cost, only HOMOGENEOUS case!!!
+Joint_quad3d_acceleration_cost::Joint_quad3d_acceleration_cost(
+    const std::shared_ptr<dynobench::Model_robot> &model_robot, size_t nx,
+    size_t nu, size_t na, size_t robot_n)
+    : Cost(nx, nu, /*6xn*/ na), model(model_robot), robot_num(robot_n) {
+
+  name = "accel_quad3d_joint";
+
+  acc_u.resize(6 * robot_num, 4 * robot_num);
+  acc_u.setZero();
+
+  acc_x.resize(6 * robot_num, 13 * robot_num);
+  acc_x.setZero();
+
+  Jv_x.resize(12 * robot_num, 13 * robot_num);
+  Jv_x.setZero();
+
+  Jv_u.resize(12 * robot_num, 4 * robot_num);
+  Jv_u.setZero();
+
+  f.resize(12 * robot_num);
+  f.setZero();
+
+  acc.resize(6 * robot_num);
+  acc.setZero();
+}
+
+void Joint_quad3d_acceleration_cost::calc(
+    Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+  model->calcV(f, x, u); // f has 12x1 for a single quad3d
+  for (size_t j = 0; j < robot_num; j++) {
+    acc.segment(j * 6, 6) = f.segment(j * 12 + 6, 6);
+  }
+  r = k_acc * acc; // size is n x 6, since ax, ay, az, wdotx, wdoty, wdotz
+}
+
+void Joint_quad3d_acceleration_cost::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::VectorXd> Lu,
+    Eigen::Ref<Eigen::MatrixXd> Lxx, Eigen::Ref<Eigen::MatrixXd> Luu,
+    Eigen::Ref<Eigen::MatrixXd> Lxu, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+
+  model->calcV(f, x, u); // f has (12xn)x1 for all robots
+  for (size_t j = 0; j < robot_num; j++) {
+    acc.segment(j * 6, 6) = f.segment(j * 12 + 6, 6);
+  }
+
+  model->calcDiffV(Jv_x, Jv_u, x,
+                   u); // Jv_x = (12xn)x(13xn), Jv_u = (12xn)x(4xn)
+
+  DYNO_CHECK_EQ(f.size(), 12 * robot_num, AT);
+  DYNO_CHECK_EQ(acc.size(), 6 * robot_num, AT);
+  DYNO_CHECK_EQ(Jv_x.cols(), 13 * robot_num, AT);
+  DYNO_CHECK_EQ(Jv_u.cols(), 4 * robot_num, AT);
+
+  DYNO_CHECK_EQ(Jv_x.rows(), 12 * robot_num, AT);
+  DYNO_CHECK_EQ(Jv_u.rows(), 12 * robot_num, AT);
+  // acc w.r.t states, actions
+  for (size_t j = 0; j < robot_num; j++) {
+    acc_x.block<6, 13>(j * 6, j * 13) =
+        Jv_x.block<6, 13>(j * 12 + 6, j * 13); // double check indexes
+    acc_u.block<6, 4>(j * 6, j * 4) = Jv_u.block<6, 4>(j * 12 + 6, j * 4);
+  }
+  // acc - robot 1, robot 2, ..., robot N
+  // acc_x - robot 1, robot 2, ..., robot N
+  // acc_y - robot 1, robot 2, ..., robot N
   double k_acc_sq = k_acc * k_acc;
   Lx += k_acc_sq * acc.transpose() * acc_x;
   Lu += k_acc_sq * acc.transpose() * acc_u;
@@ -1916,7 +2048,6 @@ Dynamics::Dynamics(std::shared_ptr<dynobench::Model_robot> robot_model,
     state_croco = boost::make_shared<StateCrocoDyno>(
         std::make_shared<dynobench::CompoundState2>(
             robot_model->state, std::make_shared<dynobench::Rn>(1)));
-
   }
 
   else if (control_mode == Control_Mode::contour) {
@@ -1970,7 +2101,6 @@ void Dynamics::calcDiff(Eigen::Ref<Eigen::MatrixXd> Fx,
   size_t _nu = robot_model->nu;
   size_t nx = x.size();
   size_t nu = u.size();
-
   Fx.setZero(); // TODO: is this necessary?
   Fu.setZero();
 
@@ -1979,14 +2109,16 @@ void Dynamics::calcDiff(Eigen::Ref<Eigen::MatrixXd> Fx,
   } else if (control_mode == Control_Mode::free_time_linear) {
     DYNO_CHECK_GE(u(robot_model->nu), 0, AT);
     DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
-    if (!startsWith(robot_model->name, "quad3d")) {
+    if (!startsWith(robot_model->name, "quad3d") &&
+        !startsWith(robot_model->name, "joint_robot")) {
       robot_model->stepDiff_with_v(Fx.block(0, 0, _nx, _nx),
                                    Fu.block(0, 0, _nx, _nu), __v, x.head(_nx),
                                    u.head(_nu), dt * u(_nu));
       Fu.block(0, _nu, _nx, 1) = __v * dt;
       Fu(_nx, _nu) = 1.;
       DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
-    } else {
+    } else // joint robot calls the corresponding stepDiff for each robot
+    {
       robot_model->stepDiff(Fx.block(0, 0, _nx, _nx), Fu.block(0, 0, _nx, _nu),
                             x.head(_nx), u.head(_nu), dt * u(_nu));
       Eigen::VectorXd dd = derivate_wrt_time(*robot_model, x, u, dt);
@@ -1994,12 +2126,16 @@ void Dynamics::calcDiff(Eigen::Ref<Eigen::MatrixXd> Fx,
       Fu(_nx, _nu) = 1.;
     }
   } else if (control_mode == Control_Mode::free_time) {
-    if (!startsWith(robot_model->name, "quad3d")) {
-      robot_model->stepDiff_with_v(Fx, Fu.block(0, 0, _nx, _nu), __v, x,
+    if (!startsWith(robot_model->name, "quad3d") &&
+        !startsWith(robot_model->name, "joint_robot")) {
+      robot_model->stepDiff_with_v(Fx.block(0, 0, _nx, _nx),
+                                   Fu.block(0, 0, _nx, _nu), __v, x.head(_nx),
                                    u.head(_nu), dt * u(_nu));
       DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
       Fu.col(_nu) = __v * dt;
-    } else {
+    } else // joint robot calls the corresponding stepDiff function for each
+           // robot
+    {
       robot_model->stepDiff(Fx.block(0, 0, _nx, _nx), Fu.block(0, 0, _nx, _nu),
                             x.head(_nx), u.head(_nu), dt * u(_nu));
       Eigen::VectorXd dd = derivate_wrt_time(*robot_model, x, u, dt);

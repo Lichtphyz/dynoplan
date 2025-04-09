@@ -573,6 +573,71 @@ struct Quad3d_coupled_acceleration_cost : Cost {
   virtual ~Quad3d_coupled_acceleration_cost() = default;
 };
 
+// Joint quadrotors case, only HOMOGENEOUS!
+struct Joint_quad3d_quaternion_cost : Cost {
+
+  double k_quat = 1.;
+  size_t robot_num;
+
+  Joint_quad3d_quaternion_cost(size_t nx, size_t nu,
+                               /*robot numbers*/ size_t robot_n);
+
+  virtual ~Joint_quad3d_quaternion_cost() = default;
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x) override;
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x,
+                    const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        const Eigen::Ref<const Eigen::VectorXd> &x) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::VectorXd> Lu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        Eigen::Ref<Eigen::MatrixXd> Luu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxu,
+                        const Eigen::Ref<const Eigen::VectorXd> &x,
+                        const Eigen::Ref<const Eigen::VectorXd> &u) override;
+};
+
+struct Joint_quad3d_acceleration_cost : Cost {
+
+  std::shared_ptr<dynobench::Model_robot> model;
+
+  double k_acc = 1;
+  size_t robot_num;
+  // Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> acc;
+  Eigen::VectorXd acc;
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> acc_u;
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> acc_x;
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Jv_x;
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Jv_u;
+  // Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> f;
+  Eigen::VectorXd f;
+
+  Joint_quad3d_acceleration_cost(
+      const std::shared_ptr<dynobench::Model_robot> &model_robot, size_t nx,
+      size_t nu, size_t na, size_t robot_n);
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x,
+                    const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::VectorXd> Lu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        Eigen::Ref<Eigen::MatrixXd> Luu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxu,
+                        const Eigen::Ref<const Eigen::VectorXd> &x,
+                        const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual ~Joint_quad3d_acceleration_cost() = default;
+};
+
 struct Diff_angle_cost : Cost {
 
   double k_diff_angle = 20.;

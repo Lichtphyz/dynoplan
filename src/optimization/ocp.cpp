@@ -554,6 +554,10 @@ void write_states_controls(const std::vector<Eigen::VectorXd> &xs,
   dynobench::Trajectory __traj;
   __traj.actions = us;
   __traj.states = xs;
+  std::cout << "__traj states: " << std::endl;
+  for (auto &x : __traj.states) {
+    std::cout << "- " << x.format(FMT) << std::endl;
+  }
 
   {
     std::ofstream out(filename + std::string(".raw.yaml"));
@@ -608,7 +612,7 @@ void fix_problem_quaternion(Eigen::VectorXd &start, Eigen::VectorXd &goal,
             << "i use quaternion interpolation, but distance is "
                "euclidean norm"
             << std::endl;
-
+  std::cout << "xs_init size (ind): " << xs_init.size() << std::endl;
   // flip the start state if necessary
   double d1 = (xs_init.front().segment<4>(3) - start.segment<4>(3)).norm();
   double d2 = (xs_init.front().segment<4>(3) + start.segment<4>(3)).norm();
@@ -626,6 +630,8 @@ void fix_problem_quaternion(Eigen::VectorXd &start, Eigen::VectorXd &goal,
     qres = qa.slerp(t, qb);
     std::cout << "qres " << qres.coeffs().format(FMT) << std::endl;
     xs_init.at(j + 1).segment<4>(3) = qres.coeffs();
+    // std::cout << "xs_init: " << j + 1 << ", " << xs_init[j +
+    // 1].head<7>().format(FMT) << std::endl;
   }
 
   // check the goal state...
@@ -637,6 +643,42 @@ void fix_problem_quaternion(Eigen::VectorXd &start, Eigen::VectorXd &goal,
 
     WARN_WITH_INFO("quad3d -- I flip the quaternion of the goal state");
     goal.segment<4>(3) *= -1.;
+  }
+};
+
+// fix quaternion for a team of HOMOGENEOUS UAVs, it assumes that all robots
+// have the same dynamics!
+void fix_problem_quaternion_joint(Eigen::VectorXd &start, Eigen::VectorXd &goal,
+                                  std::vector<Eigen::VectorXd> &xs_init,
+                                  std::vector<Eigen::VectorXd> &us_init,
+                                  int robot_num) {
+  for (size_t j = 0; j < robot_num; j++) {
+    // 1. extract corresponding states
+    std::vector<Eigen::VectorXd> xs_init_tmp;
+    xs_init_tmp.reserve(xs_init.size());
+    for (const auto &x : xs_init) {
+      Eigen::VectorXd xs = x.segment<13>(j * 13);
+      xs_init_tmp.push_back(xs);
+    }
+    std::vector<Eigen::VectorXd> us_init_tmp;
+    us_init_tmp.reserve(us_init.size());
+    for (const auto &u : us_init) {
+      Eigen::VectorXd us = u.segment<4>(j * 4);
+      us_init_tmp.push_back(us);
+    }
+    // 2. run the fix_problem_quaternion
+    Eigen::VectorXd start_tmp = start.segment(j * 13, 13);
+    Eigen::VectorXd goal_tmp = goal.segment(j * 13, 13);
+    fix_problem_quaternion(start_tmp, goal_tmp, xs_init_tmp, us_init_tmp);
+    // 3. update the xs_init, us_init
+    for (size_t i = 0; i < xs_init.size(); ++i) {
+      xs_init[i].segment<13>(j * 13) = xs_init_tmp[i];
+      // std::cout << "i, xs_init, after: " << i << ", " <<
+      // xs_init[i].segment<7>(j * 13).format(dynobench::FMT) << std::endl;
+    }
+    for (size_t i = 0; i < us_init.size(); ++i) {
+      us_init[i].segment<4>(j * 4) = us_init_tmp[i];
+    }
   }
 };
 
@@ -767,7 +809,6 @@ void mpc_adaptative_warmstart(
         }
       }
     }
-
   } else {
     std::cout << "first iteration -- using first" << std::endl;
 
@@ -1097,10 +1138,19 @@ void __trajectory_optimization(
 
   if (startsWith(problem.robotType, "quad3d") &&
       !startsWith(problem.robotType, "quad3dpayload") &&
-      !startsWith(problem.robotType, "quad3d_coupled")) {
+      !startsWith(problem.robotType, "quad3d_coupled") &&
+      problem.robotTypes.size() == 1) {
     DYNO_CHECK_EQ(start.size(), 13, "");
     DYNO_CHECK_EQ(goal.size(), 13, "");
     fix_problem_quaternion(start, goal, xs_init, us_init);
+  }
+  // fix the quaternion issue for a homogeneous UAV team/joint robot ONLY!
+  if (problem.robotTypes.size() > 1 && problem.goal_times.size() &&
+      startsWith(problem.robotType, "quad3d")) {
+    fix_problem_quaternion_joint(start, goal, xs_init, us_init,
+                                 problem.goal_times.size());
+    options_trajopt_local.smooth_traj = false;
+    options_trajopt_local.noise_level = -1.;
   }
 
   if (options_trajopt_local.smooth_traj) {
@@ -1243,7 +1293,6 @@ void __trajectory_optimization(
           xs = std::vector<Vxd>(window_optimize_i + 1, gen_args.start);
           us = std::vector<Vxd>(window_optimize_i, Vxd::Zero(model_robot->nu));
         }
-
       }
 
       else if (solver == SOLVER::mpc_adaptative) {
@@ -1291,7 +1340,6 @@ void __trajectory_optimization(
                                    xs_warmstart, us_warmstart, model_robot,
                                    options_trajopt_local.shift_repeat, path,
                                    path_u, max_alpha);
-
         } else {
           xs = std::vector<Vxd>(window_optimize_i + 1, gen_args.start);
           us = std::vector<Vxd>(window_optimize_i, Vxd::Zero(nu));
@@ -1394,7 +1442,6 @@ void __trajectory_optimization(
                          xs, us, model_robot,
                          options_trajopt_local.shift_repeat, path, path_u, dt,
                          max_alpha, xs_init, us_init);
-
         } else {
           std::cout << "no warmstart " << std::endl;
           Vxd u0c(_nu + 1);
@@ -1507,7 +1554,6 @@ void __trajectory_optimization(
           std::cout << "setting x last to true " << std::endl;
           is_last = true;
         }
-
       } else if (solver == SOLVER::mpcc || solver == SOLVER::mpcc_linear) {
 
         std::cout << "if final reaches the goal, i stop" << std::endl;
@@ -1689,7 +1735,6 @@ void __trajectory_optimization(
     traj.check(model_robot, true);
     traj.update_feasibility(dynobench::Feasibility_thresholds(), true);
     success = traj.feasible;
-
   } else if (solver == SOLVER::traj_opt || __free_time_mode) {
 
     if (solver == SOLVER::traj_opt_free_time_proxi) {
@@ -2135,7 +2180,6 @@ void trajectory_optimization(const dynobench::Problem &problem,
     }
     traj = tmp_solution;
     DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-
   } break;
 
   case SOLVER::traj_opt_smooth_then_free_time: {
@@ -2184,7 +2228,6 @@ void trajectory_optimization(const dynobench::Problem &problem,
     }
 
     DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-
   } break;
 
   case SOLVER::first_fixed_then_free_time: {
