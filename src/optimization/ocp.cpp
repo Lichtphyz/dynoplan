@@ -1149,8 +1149,6 @@ void __trajectory_optimization(
       startsWith(problem.robotType, "quad3d")) {
     fix_problem_quaternion_joint(start, goal, xs_init, us_init,
                                  problem.goal_times.size());
-    options_trajopt_local.smooth_traj = false;
-    options_trajopt_local.noise_level = -1.;
   }
 
   if (options_trajopt_local.smooth_traj) {

@@ -29,8 +29,8 @@
 using namespace dynoplan;
 using namespace dynobench;
 
-#define DYNOBENCH_BASE "../dynobench/" // debug mode
-// #define DYNOBENCH_BASE "../../dynobench/"
+// #define DYNOBENCH_BASE "../dynobench/" // debug mode
+#define DYNOBENCH_BASE "../../dynobench/"
 
 BOOST_AUTO_TEST_CASE(t_multi_robot_cli) {
 
