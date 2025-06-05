@@ -155,6 +155,13 @@ struct Out_info_tdb {
       out << "  " << k << ": " << v << std::endl;
     }
   }
+  void reset() {
+    cost = -1;
+    solved = 0;
+    cost_with_delta_time = -1;
+    time_search = -1;
+    data.clear();
+  }
 };
 
 double automatic_delta(double delta_in, double alpha, RobotOmpl &robot,
