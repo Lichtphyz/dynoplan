@@ -17,6 +17,7 @@ enum class PRIMITIVE_MODE {
   yamltobin = 12,
   sort_with_rand_config = 13,
   reduce_set = 14,
+  handcrafted = 15,
 };
 
 using namespace dynobench;
@@ -418,6 +419,17 @@ int main(int argc, const char *argv[]) {
     }
 
     trajectories.save_file_boost(out_file.c_str());
+    trajectories.compute_stats("/tmp/tmp_stats.yaml");
+  }
+
+  // assumes only single integrator dynamics
+  if (mode == PRIMITIVE_MODE::handcrafted) {
+
+    dynobench::Trajectories trajectories;
+    generate_handcrafted_primitives(options_primitives, trajectories,
+                                    /*motion length*/ 10);
+    trajectories.save_file_boost(out_file.c_str());
+    trajectories.save_file_yaml((out_file + ".1000.yaml").c_str(), 1000);
     trajectories.compute_stats("/tmp/tmp_stats.yaml");
   }
 

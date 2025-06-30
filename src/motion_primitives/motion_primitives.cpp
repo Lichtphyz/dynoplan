@@ -83,7 +83,6 @@ void sort_motion_primitives_rand_config(
           best_index = u;
         }
       }
-
     } break;
 
       // sample one configuration
@@ -98,7 +97,6 @@ void sort_motion_primitives_rand_config(
           best_index = u;
         }
       }
-
     } break;
 
     case Mode::BOTH: {
@@ -121,7 +119,6 @@ void sort_motion_primitives_rand_config(
       }
 
       NOT_IMPLEMENTED;
-
     } break;
     default:
       NOT_IMPLEMENTED;
@@ -238,7 +235,6 @@ void sort_motion_primitives(
 
       finished = used_motions.size() == top_k;
     }
-
   } else {
 
     std::vector<std::pair<double, double>> distance_map(trajs.data.size());
@@ -438,11 +434,9 @@ void improve_motion_primitives(const Options_trajopt &options_trajopt,
         trajs_out.data.at(i) = traj_out;
 
         num_improves++;
-
       } else {
         trajs_out.data.at(i) = traj;
       }
-
     } catch (const std::exception &e) {
       std::cout << __FILE__ << ":" << __LINE__ << std::endl;
       std::cout << "exception: " << e.what() << std::endl;
@@ -722,6 +716,51 @@ void generate_primitives(const Options_trajopt &options_trajopt,
   CSTR_(trajectories.data.size());
   double success_rate = double(trajectories.data.size()) / attempts;
   CSTR_(success_rate);
+}
+// generate motions of certain length N, and apply max control actions for
+// forward propagation
+void generate_handcrafted_primitives(
+    const Options_primitives &options_primitives,
+    dynobench::Trajectories &trajectories, int motion_length) {
+
+  bool finished = false;
+  auto robot_model =
+      dynobench::robot_factory((options_primitives.models_base_path +
+                                options_primitives.dynamics + ".yaml")
+                                   .c_str());
+
+  std::vector<Eigen::Vector2d> hard_actions;
+  double vel = 0.5;
+  hard_actions.push_back(Eigen::Vector2d(0.0, vel));  // up
+  hard_actions.push_back(Eigen::Vector2d(vel, 0.0));  // right
+  hard_actions.push_back(Eigen::Vector2d(0.0, -vel)); // down
+  hard_actions.push_back(Eigen::Vector2d(-vel, 0.0)); // left
+  hard_actions.push_back(Eigen::Vector2d(0.0, 0.0));  // stay
+
+  Eigen::Vector2d start(robot_model->nx);
+  start.setZero(); // single integrator, starts at (0,0)
+  std::cout << "Trying to Generate a path betweeen " << std::endl;
+  for (auto &a : hard_actions) { // for each direction motion
+    dynobench::Trajectory traj;
+    std::vector<Eigen::VectorXd> states(motion_length,
+                                        Eigen::Vector2d::Zero(robot_model->nx));
+    std::vector<Eigen::VectorXd> actions((motion_length), a);
+    states.push_back(start);
+    for (size_t i = 0; i < motion_length; i++) {
+      std::cout << a.format(dynobench::FMT) << std::endl;
+      robot_model->step(/*out*/ states.at(i + 1), /*in*/ states.at(i), a,
+                        robot_model->ref_dt);
+      std::cout << states.at(i + 1).format(dynobench::FMT) << std::endl;
+    }
+    traj.start = start;
+    traj.goal = states.back();
+    traj.states = states;
+    traj.actions = actions;
+    CHECK(traj.states.size(), AT);
+    CHECK(traj.actions.size(), AT);
+    trajectories.data.push_back(traj);
+  }
+  CSTR_(trajectories.data.size());
 }
 
 } // namespace dynoplan
