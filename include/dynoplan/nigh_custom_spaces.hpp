@@ -67,6 +67,9 @@ using __SpaceUni2WithCost =
                          nigh::ScaledSpace<nigh::L2Space<double, 1>>,
                          nigh::ScaledSpace<nigh::L2Space<double, 1>>,
                          nigh::ScaledSpace<nigh::L2Space<double, 1>>>;
+// no distance weights
+using SpaceIntegrator1 = nigh::L2Space<double, 2>;
+using __SpaceIntegrator1 = nigh::L2Space<double, 2>;
 
 using SpaceIntegrator2 = nigh::CartesianSpace<
     nigh::L2Space<double, 2>,
@@ -515,7 +518,20 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
       out =
           new NearestNeighborsNigh<_T, __SpaceUni2WithCost>(space, data_to_key);
     }
-  } else if (startsWith(name, "integrator2_2d")) {
+  }
+  else if (startsWith(name, "integrator1_2d"))
+  {
+    auto data_to_key = [robot, fun](_T const &m)
+    {
+      using Vector2d = Eigen::Matrix<double, 2, 1>;
+      Vector2d __x = fun(m);
+      return Eigen::Vector2d(__x.head<2>());
+    };
+    __SpaceIntegrator1 space;
+    out = new NearestNeighborsNigh<_T, __SpaceIntegrator1>(space, data_to_key);
+  }
+  else if (startsWith(name, "integrator2_2d"))
+  {
     auto data_to_key = [robot, fun](_T const &m) {
       using Vector4d = Eigen::Matrix<double, 4, 1>;
       Vector4d __x = fun(m);
@@ -526,8 +542,9 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
     DYNO_CHECK_EQ(w.size(), 2, AT);
     __SpaceIntegrator2 space(w(0), w(1));
     out = new NearestNeighborsNigh<_T, __SpaceIntegrator2>(space, data_to_key);
-
-  } else if (startsWith(name, "integrator2_3d_res")) {
+  }
+  else if (startsWith(name, "integrator2_3d_res"))
+  {
     auto data_to_key = [robot, fun](_T const &m) {
       using Vector7d = Eigen::Matrix<double, 7, 1>;
       using Vector1d = Eigen::Matrix<double, 1, 1>;
@@ -541,8 +558,9 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
     __SpaceIntegrator2_3d_res space(w(0), w(1), w(2));
     out = new NearestNeighborsNigh<_T, __SpaceIntegrator2_3d_res>(space,
                                                                   data_to_key);
-
-  } else if (startsWith(name, "integrator2_3d")) {
+  }
+  else if (startsWith(name, "integrator2_3d"))
+  {
     auto data_to_key = [robot, fun](_T const &m) {
       using Vector6d = Eigen::Matrix<double, 6, 1>;
       Vector6d __x = fun(m);
@@ -556,8 +574,9 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
     __SpaceIntegrator2_3d space(w(0), w(1));
     out =
         new NearestNeighborsNigh<_T, __SpaceIntegrator2_3d>(space, data_to_key);
-
-  } else if (startsWith(name, "quad2dpole")) {
+  }
+  else if (startsWith(name, "quad2dpole"))
+  {
 
     auto data_to_key = [robot, fun](_T const &m) {
       using Vector8d = Eigen::Matrix<double, 8, 1>;
@@ -573,7 +592,6 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
     Space space(w(0), w(1), w(2), w(3), w(4), w(5));
 
     out = new NearestNeighborsNigh<_T, Space>(space, data_to_key);
-
   }
 
   else if (startsWith(name, "quad2d")) {
@@ -747,7 +765,20 @@ ompl::NearestNeighbors<_T> *nigh_factory_t(
           new NearestNeighborsNigh<_T, __SpaceUni2WithCost>(space, data_to_key);
     }
 
-  } else if (startsWith(name, "integrator2_2d")) {
+  }
+  else if (startsWith(name, "integrator1_2d"))
+  {
+    auto data_to_key = [robot, fun, reverse_search](_T const &m)
+    {
+      using Vector2d = Eigen::Matrix<double, 2, 1>;
+      Vector2d __x = fun(m, reverse_search, robot->translation_invariance);
+      return Eigen::Vector2d(__x.head<2>());
+    };
+    __SpaceIntegrator1 space;
+    out = new NearestNeighborsNigh<_T, __SpaceIntegrator1>(space, data_to_key);
+  }
+  else if (startsWith(name, "integrator2_2d"))
+  {
     auto data_to_key = [robot, fun, reverse_search](_T const &m) {
       using Vector4d = Eigen::Matrix<double, 4, 1>;
       Vector4d __x = fun(m, reverse_search, robot->translation_invariance);
@@ -758,8 +789,9 @@ ompl::NearestNeighbors<_T> *nigh_factory_t(
     DYNO_CHECK_EQ(w.size(), 2, AT);
     __SpaceIntegrator2 space(w(0), w(1));
     out = new NearestNeighborsNigh<_T, __SpaceIntegrator2>(space, data_to_key);
-
-  } else if (startsWith(name, "integrator2_3d_res")) {
+  }
+  else if (startsWith(name, "integrator2_3d_res"))
+  {
     auto data_to_key = [robot, fun, reverse_search](_T const &m) {
       using Vector7d = Eigen::Matrix<double, 7, 1>;
       using Vector1d = Eigen::Matrix<double, 1, 1>;
@@ -773,8 +805,9 @@ ompl::NearestNeighbors<_T> *nigh_factory_t(
     __SpaceIntegrator2_3d_res space(w(0), w(1), w(2));
     out = new NearestNeighborsNigh<_T, __SpaceIntegrator2_3d_res>(space,
                                                                   data_to_key);
-
-  } else if (startsWith(name, "integrator2_3d")) {
+  }
+  else if (startsWith(name, "integrator2_3d"))
+  {
     auto data_to_key = [robot, fun, reverse_search](_T const &m) {
       using Vector6d = Eigen::Matrix<double, 6, 1>;
       Vector6d __x = fun(m, reverse_search, robot->translation_invariance);
@@ -788,8 +821,9 @@ ompl::NearestNeighbors<_T> *nigh_factory_t(
     __SpaceIntegrator2_3d space(w(0), w(1));
     out =
         new NearestNeighborsNigh<_T, __SpaceIntegrator2_3d>(space, data_to_key);
-
-  } else if (startsWith(name, "car1")) {
+  }
+  else if (startsWith(name, "car1"))
+  {
 
     auto data_to_key = [robot, fun, reverse_search](_T const &m) {
       Eigen::Vector4d __x =
