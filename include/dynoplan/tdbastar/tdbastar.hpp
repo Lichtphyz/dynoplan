@@ -188,9 +188,6 @@ namespace dynoplan
     double time;
     Eigen::VectorXd constrained_state;
   };
-  void export_constraints(const std::vector<Constraint> &constrained_states,
-                          std::string robot_type, size_t robot_id,
-                          std::ofstream *out);
 
   void tdbastar(
       dynobench::Problem &problem, Options_tdbastar options_dbastar,

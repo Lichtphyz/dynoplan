@@ -537,30 +537,6 @@ namespace dynoplan
     }
   };
 
-  // for standalone_tdbastar
-  void export_constraints(const std::vector<Constraint> &constrained_states,
-                          std::string robot_type, size_t robot_id,
-                          std::ofstream *out)
-  {
-    *out << "robot_type:" << std::endl;
-    *out << "        ";
-    *out << robot_type << std::endl;
-    *out << "robot_id:" << std::endl;
-    *out << "        ";
-    *out << robot_id << std::endl;
-    *out << "constraints:" << std::endl;
-    for (size_t i = 0; i < constrained_states.size(); ++i)
-    {
-      *out << "  - states:" << std::endl;
-      *out << "        ";
-      *out << constrained_states[i].constrained_state.format(dynobench::FMT)
-           << std::endl;
-      *out << "    time:" << std::endl;
-      *out << "        ";
-      *out << constrained_states[i].time << std::endl;
-    }
-  };
-
   void tdbastar(
       dynobench::Problem &problem, Options_tdbastar options_tdbastar,
       Trajectory &traj_out, const std::vector<Constraint> &constraints,
