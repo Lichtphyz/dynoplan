@@ -811,7 +811,7 @@ namespace dynoplan
       }
       bool is_at_goal_no_constraints = false;
       if (distance_to_goal <
-          options_tdbastar.delta_factor_goal * options_tdbastar.delta)
+          options_tdbastar.delta_factor_goal * options_tdbastar.goal_delta)
       {
         is_at_goal_no_constraints = true;
         for (const auto &constraint : constraints)
