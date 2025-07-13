@@ -619,7 +619,7 @@ namespace dynoplan
     } });
 
     Expander expander(robot.get(), T_m,
-                      options_tdbastar.alpha * options_tdbastar.delta);
+                      options_tdbastar.alpha * options_tdbastar.delta, /*add static motion*/false);
     if (options_tdbastar.alpha <= 0 || options_tdbastar.alpha >= 1)
     {
       ERROR_WITH_INFO("Alpha needs to be between 0 and 1!");

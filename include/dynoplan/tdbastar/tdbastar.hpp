@@ -256,15 +256,16 @@ namespace dynoplan
     Motion fakeMotion;
     std::vector<Motion *> neighbors_m;
     double delta = -1;
-    bool random = true;
+    bool random = false; // determenistic beh. DEBUG
     std::mt19937 g;
     size_t max_k = std::numeric_limits<size_t>::max();
     double time_in_nn = 0;
     bool verbose = false;
-
+    bool add_static_motions = false;
+    // bool reverse_search = false;
     Expander(dynobench::Model_robot *robot, ompl::NearestNeighbors<Motion *> *T_m,
-             double delta)
-        : robot(robot), T_m(T_m), delta(delta)
+             double delta, bool add_static_motions)
+        : robot(robot), T_m(T_m), delta(delta), add_static_motions(add_static_motions)
     {
       canonical_state.resize(robot->nx);
       offset.resize(robot->get_offset_dim());
@@ -275,7 +276,14 @@ namespace dynoplan
     }
 
     void seed(int seed) { g.seed(seed); }
-
+    double wrap_angle(double angle)
+    {
+      while (angle >= M_PI)
+        angle -= 2 * M_PI;
+      while (angle < -M_PI)
+        angle += 2 * M_PI;
+      return angle;
+    }
     void expand_lazy(Eigen::Ref<const Eigen::VectorXd> x,
                      std::vector<LazyTraj> &lazy_trajs)
     {
@@ -320,6 +328,44 @@ namespace dynoplan
         auto &m = neighbors_m.at(i);
         LazyTraj lazy_traj{.offset = &offset, .robot = robot, .motion = m};
         lazy_trajs.push_back(lazy_traj);
+      }
+      if (add_static_motions)
+      {
+        std::random_device rd;
+        std::mt19937 gen(rd()); // gen(42);
+        std::uniform_real_distribution<> dis(-M_PI, M_PI);
+        std::vector<double> orientations;
+        orientations.push_back(dis(gen));
+        // std::vector<double> orientations = {
+        // -M_PI,                      // 180
+        // -M_PI + (2 * M_PI / 7), // -128.61
+        // -M_PI + (2 * M_PI / 7) * 2, // -77.24
+        // -M_PI + (2 * M_PI / 7) * 3, // -25.8
+        // -M_PI + (2 * M_PI / 7) * 4, // 25.50
+        // -M_PI + (2 * M_PI / 7) * 5, // 76.87
+        // -M_PI + (2 * M_PI / 7) * 6  // 128.24
+        // };
+        if (robot->name == "unicycle1")
+        {
+          std::cout << "manually adding motions" << std::endl;
+          Eigen::VectorXd zero_action(robot->nu);
+          zero_action.setZero();
+          const int num_steps = 13;
+          for (double theta : orientations)
+          {
+            theta = wrap_angle(theta);
+            std::cout << "Adding motion with theta: " << theta << std::endl;
+
+            Motion *m = new Motion();
+            Eigen::VectorXd fixed_state(robot->nx);
+            fixed_state.setZero();
+            fixed_state(2) = theta; // deterministically set orientation
+            m->traj.states.resize(num_steps, fixed_state);
+            m->traj.actions.resize(num_steps - 1, zero_action);
+            LazyTraj tmp_lazy_traj{.offset = &offset, .robot = robot, .motion = m};
+            lazy_trajs.push_back(tmp_lazy_traj);
+          }
+        }
       }
     }
   };
