@@ -233,6 +233,38 @@ namespace dynoplan
 
     virtual ~Heu_roadmap_bwd() override {};
   };
+  // more precise for pibt
+  template <typename _T, typename _Node>
+  struct Heu_roadmap_bwd2 : Heu_fun
+  {
+
+    Heu_roadmap_bwd2(std::shared_ptr<dynobench::Model_robot> robot,
+                     ompl::NearestNeighbors<_T> *heuristic_nn,
+                     const Eigen::VectorXd &goal)
+        : robot(robot), heuristic_nn(heuristic_nn), goal(goal) {}
+
+    std::shared_ptr<dynobench::Model_robot> robot;
+    ompl::NearestNeighbors<_T> *heuristic_nn;
+    Eigen::VectorXd goal;
+
+    virtual double h(const Eigen::VectorXd &x) override
+    {
+      assert(x.size() == robot->nx);
+      if (heuristic_nn)
+      {
+        auto fake_node = std::make_shared<_Node>();
+        fake_node->state_eig = x;
+        auto nearest_node = heuristic_nn->nearest(fake_node);
+        return (nearest_node->gScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig));
+      }
+      else
+      {
+        return robot->lower_bound_time(x, goal);
+      }
+    }
+
+    virtual ~Heu_roadmap_bwd2() override {};
+  };
 
   void build_heuristic_distance_new(
       const std::vector<Eigen::VectorXd> &batch_samples,

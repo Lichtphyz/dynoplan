@@ -331,7 +331,6 @@ namespace dynoplan
       }
       if (add_static_motions)
       {
-        std::cout << "manually adding motions" << std::endl;
         Eigen::VectorXd zero_action(robot->nu);
         zero_action.setZero();
         const int num_steps = 13;
@@ -342,21 +341,12 @@ namespace dynoplan
           std::random_device rd;
           std::mt19937 gen(rd()); // gen(42);
           std::uniform_real_distribution<> dis(-M_PI, M_PI);
-          std::vector<double> orientations;
-          orientations.push_back(dis(gen));
-          // std::vector<double> orientations = {
-          // -M_PI,                      // 180
-          // -M_PI + (2 * M_PI / 7), // -128.61
-          // -M_PI + (2 * M_PI / 7) * 2, // -77.24
-          // -M_PI + (2 * M_PI / 7) * 3, // -25.8
-          // -M_PI + (2 * M_PI / 7) * 4, // 25.50
-          // -M_PI + (2 * M_PI / 7) * 5, // 76.87
-          // -M_PI + (2 * M_PI / 7) * 6  // 128.24
-          // };
-          for (double theta : orientations)
+          // better sample, otherwise sensitive to goal theta value
+          for (size_t i = 0; i < 2; i++)
           {
+            double theta = dis(gen);
             theta = wrap_angle(theta);
-            std::cout << "Adding sampled theta: " << theta << std::endl;
+            // std::cout << "Adding sampled theta: " << theta << "(" << theta * 180.0 / M_PI << " deg.)" << std::endl;
             Motion *m = new Motion();
             fixed_state(2) = theta; // deterministically set orientation
             m->traj.states.resize(num_steps, fixed_state);
@@ -366,7 +356,8 @@ namespace dynoplan
           }
         }
         // single motion primitive
-        else {
+        else
+        {
           Motion *m = new Motion();
           m->traj.states.resize(num_steps, fixed_state);
           m->traj.actions.resize(num_steps - 1, zero_action);
