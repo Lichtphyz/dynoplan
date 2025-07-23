@@ -342,7 +342,7 @@ namespace dynoplan
           std::mt19937 gen(rd()); // gen(42);
           std::uniform_real_distribution<> dis(-M_PI, M_PI);
           // better sample, otherwise sensitive to goal theta value
-          for (size_t i = 0; i < 2; i++)
+          for (size_t i = 0; i < 1; i++)
           {
             double theta = dis(gen);
             theta = wrap_angle(theta);

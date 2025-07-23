@@ -3164,13 +3164,13 @@ void load_motion_primitives_new(const std::string &motionsFile,
     NOT_IMPLEMENTED;
   }
 
-  // if (shuffle) {
-  //   std::shuffle(std::begin(motions), std::end(motions),
-  //   std::default_random_engine{});
-    // std::random_device rd;
-    // std::default_random_engine eng(rd()); // Seed with random value
-    // std::shuffle(std::begin(motions), std::end(motions), eng);
-  // }
+  if (shuffle) {
+    // std::shuffle(std::begin(motions), std::end(motions),
+    // std::default_random_engine{});
+    std::random_device rd;
+    std::default_random_engine eng(rd()); // Seed with random value
+    std::shuffle(std::begin(motions), std::end(motions), eng);
+  }
 
   for (size_t idx = 0; idx < motions.size(); ++idx) {
     motions[idx].idx = idx;
