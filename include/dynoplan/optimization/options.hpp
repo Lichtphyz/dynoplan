@@ -34,12 +34,12 @@ struct Options_trajopt {
   double k_contour = 10.;
   double u_bound_scale = 1;
 
-  size_t max_iter = 50;
+  size_t max_iter = 100;
   size_t window_optimize = 20;
   size_t window_shift = 10;
   size_t max_mpc_iterations = 50;
   std::string debug_file_name = "/tmp/debug_file.yaml";
-  double weight_goal = 200.;
+  double weight_goal = 1000.;
   double collision_weight = 100.;
   bool smooth_traj = true;
   bool shift_repeat = false;
