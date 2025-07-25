@@ -8,7 +8,7 @@ namespace dynoplan {
 
 struct Options_primitives {
 
-  double time_limit = 1000;    // in seconds
+  double time_limit = 43200;    // in seconds
   int max_num_primitives = -1; // use -1 to say MAX
   size_t max_attempts = 1e8;
   std::string dynamics = "unicycle1_v0";
