@@ -3104,7 +3104,7 @@ void load_motion_primitives_new(const std::string &motionsFile,
   if (max_motions < trajs.data.size())
     trajs.data.resize(max_motions);
 
-  std::cout << "trajs " << std::endl;
+  std::cout << "trajs " << trajs.data.size() << std::endl;
   std::cout << "first state is " << std::endl;
   CSTR_V(trajs.data.front().states.front());
 
@@ -3195,9 +3195,12 @@ void motion_to_motion(std::vector<Motion> &robot_motions,
                       std::vector<Motion> &motion_out,
                       dynobench::Model_robot &robot, size_t desired_size) {
 
-  std::cout << "before adding " << motion_out.size() << std::endl;
-  size_t N = std::min(desired_size, robot_motions.size());
-  for (size_t i = motion_out.size(); i < N; i++) {
+  size_t start = motion_out.size();
+  size_t end = std::min(desired_size, robot_motions.size());  // Cap the end
+
+  std::cout << "N: " << desired_size << ", before adding: " << motion_out.size() << std::endl;
+  std::cout << "full prims: " << robot_motions.size() << std::endl;
+  for (size_t i = start; i < end; i++) {
     dynoplan::Motion m;
     m.traj = robot_motions.at(i).traj;
     m.states.resize(m.traj.states.size());
