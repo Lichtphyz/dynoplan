@@ -3,6 +3,7 @@
 #include "dynoplan/optimization/generate_ocp.hpp"
 #include "dynobench/joint_robot.hpp"
 #include "dynobench/quadrotor_payload_n.hpp"
+#include "dynobench/mujoco_quadrotors_payload.hpp"
 
 namespace dynoplan {
 
@@ -342,6 +343,31 @@ generate_problem(const Generate_params &gen_args,
       }
     }
 
+
+    if (startsWith(gen_args.name, "mujoco")) {
+      // TODO: refactor so that the features are local to the robots!!
+      if (control_mode == Control_Mode::default_mode ||
+          control_mode == Control_Mode::free_time) {
+        std::cout << "adding regularization on the acceleration! " << std::endl;
+
+        auto ptr_derived =
+            std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(
+                gen_args.model_robot);
+
+        // Additionally, add regularization!!
+        ptr<Cost> state_feature = mk<State_cost>(
+            nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
+        feats_run.push_back(state_feature);
+
+
+        ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
+            gen_args.model_robot, gen_args.model_robot->k_acc);
+        feats_run.push_back(acc_cost);
+      } else {
+        // QUIM TODO: Check if required!!
+        NOT_IMPLEMENTED;
+      }
+    }
     if (startsWith(gen_args.name, "acrobot")) {
       // TODO: refactor so that the features are local to the robots!!
       if (control_mode == Control_Mode::default_mode) {

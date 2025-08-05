@@ -579,6 +579,43 @@ struct Payload_n_acceleration_cost : Cost {
   virtual ~Payload_n_acceleration_cost() = default;
 };
 
+struct mujoco_quads_payload_acc : Cost {
+
+  // TODO: KHALED, we want this generic
+  // You just have to modify the selector vector -- see constructor
+
+  std::shared_ptr<dynobench::Model_robot> model;
+
+  double k_acc = 1;
+
+  Eigen::VectorXd selector;
+  Eigen::VectorXd f;
+  Eigen::MatrixXd acc_u;
+  Eigen::MatrixXd acc_x;
+
+  Eigen::MatrixXd Jv_x;
+  Eigen::MatrixXd Jv_u;
+  Eigen::VectorXd acc;
+
+  mujoco_quads_payload_acc(
+      const std::shared_ptr<dynobench::Model_robot> &model_robot, double k_acc);
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x,
+                    const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::VectorXd> Lu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        Eigen::Ref<Eigen::MatrixXd> Luu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxu,
+                        const Eigen::Ref<const Eigen::VectorXd> &x,
+                        const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual ~mujoco_quads_payload_acc() = default;
+};
+
+
 struct Quad3d_acceleration_cost : Cost {
 
   using Vector6d = Eigen::Matrix<double, 6, 1>;

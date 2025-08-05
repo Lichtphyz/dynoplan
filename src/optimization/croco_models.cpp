@@ -1612,6 +1612,82 @@ Payload_n_acceleration_cost::Payload_n_acceleration_cost(
   // selector.segment(3 * 6 + 7 + 4, 3).setOnes();
 }
 
+
+mujoco_quads_payload_acc::mujoco_quads_payload_acc(
+    const std::shared_ptr<dynobench::Model_robot> &model_robot, double k_acc)
+    : Cost(model_robot->nx, model_robot->nu, 6*(int(model_robot->nx/13))), k_acc(k_acc),
+      model(model_robot) {
+
+  name = "acceleration_mujoco";
+  int nx = model_robot->nx;
+  int nu = model_robot->nu;
+  int num_bodies = int((nx) / 13);
+  int nv = 6*(num_bodies);
+  int nq = 7*(num_bodies);
+  
+  acc_x.resize(nv, (nq+nv));
+  acc_x.setZero();
+  
+  acc_u.resize(nv, nu);
+  acc_u.setZero();
+  Jv_x.resize(2*nv, (nv+nq));
+  Jv_x.setZero();
+  Jv_u.resize(2*nv, nu);
+  Jv_u.setZero();
+  f.resize(2*nv);
+  f.setZero();
+  acc.resize(nv);
+  acc.setZero();
+}
+
+//////////////////////////////////
+
+void mujoco_quads_payload_acc::calc(
+    Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+  int num_bodies = int((model->nx) / 13);
+  int nv = 6*(num_bodies);
+  model->calcV(f, x.head(model->nx), u.head(model->nu));
+  acc = f.tail(nv);
+  r = k_acc * acc;
+}
+
+void mujoco_quads_payload_acc::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::VectorXd> Lu,
+    Eigen::Ref<Eigen::MatrixXd> Lxx, Eigen::Ref<Eigen::MatrixXd> Luu,
+    Eigen::Ref<Eigen::MatrixXd> Lxu, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+
+  int num_bodies = int((model->nx) / 13);
+  int nv = 6*(num_bodies);
+  int nq = 7*num_bodies;
+  int nu = 4*(num_bodies -1);
+  model->calcV(f, x.head(model->nx), u.head(model->nu));
+  acc = f.tail(nv);
+  model->calcDiffV(Jv_x, Jv_u, x.head(model->nx), u.head(model->nu));
+
+  DYNO_CHECK_EQ(f.size(), 2*nv, AT);
+  DYNO_CHECK_EQ(acc.size(), nv, AT);
+  DYNO_CHECK_EQ(Jv_x.cols(), (nq+nv), AT);
+  DYNO_CHECK_EQ(Jv_u.cols(), nu, AT);
+
+  DYNO_CHECK_EQ(Jv_x.rows(), 2*nv, AT);
+  DYNO_CHECK_EQ(Jv_u.rows(), 2*nv, AT);
+
+  acc_x = Jv_x.block(nv, 0, nv, nq + nv);  // run-time block
+  acc_u = Jv_u.block(nv, 0, nv, nu);       // run-time block
+  double k_acc_sq = k_acc * k_acc;
+
+  Lx.head(nq+nv) += k_acc_sq * acc.transpose() * acc_x;
+  Lu.head(nu) += k_acc_sq * acc.transpose() * acc_u;
+
+  Lxx.block(0, 0, (nq+nv), (nq+nv)) += k_acc_sq * acc_x.transpose() * acc_x;
+  Luu.block(0, 0, nu, nu) += k_acc_sq * acc_u.transpose() * acc_u;
+  Lxu.block(0, 0, (nq+nv), nu) += k_acc_sq * acc_x.transpose() * acc_u;
+
+}
+
+//////////////////////////////////
 void Payload_n_acceleration_cost::calc(
     Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
     const Eigen::Ref<const Eigen::VectorXd> &u) {
@@ -1832,7 +1908,7 @@ void Dynamics::calcDiff(Eigen::Ref<Eigen::MatrixXd> Fx,
       Fu(_nx, _nu) = 1.;
     }
   } else if (control_mode == Control_Mode::free_time) {
-    if (!startsWith(robot_model->name, "quad3d")) {
+    if (!startsWith(robot_model->name, "mujoco_quadspayload") && !startsWith(robot_model->name, "quad3d")) {
       robot_model->stepDiff_with_v(Fx, Fu.block(0, 0, _nx, _nu), __v, x,
                                    u.head(_nu), dt * u(_nu));
       DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
