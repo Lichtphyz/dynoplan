@@ -651,6 +651,47 @@ void add_extra_time_rate(std::vector<Eigen::VectorXd> &us_init) {
   }
   us_init = us_init_time;
 };
+// fix quaternion for a team of HOMOGENEOUS UAVs, it assumes that all robots
+// have the same dynamics!
+void fix_problem_quaternion_joint(Eigen::VectorXd &start, Eigen::VectorXd &goal,
+                                  std::vector<Eigen::VectorXd> &xs_init,
+                                  std::vector<Eigen::VectorXd> &us_init,
+                                  int robot_num)
+{
+  for (size_t j = 0; j < robot_num; j++)
+  {
+    // 1. extract corresponding states
+    std::vector<Eigen::VectorXd> xs_init_tmp;
+    xs_init_tmp.reserve(xs_init.size());
+    for (const auto &x : xs_init)
+    {
+      Eigen::VectorXd xs = x.segment<13>(j * 13);
+      xs_init_tmp.push_back(xs);
+    }
+    std::vector<Eigen::VectorXd> us_init_tmp;
+    us_init_tmp.reserve(us_init.size());
+    for (const auto &u : us_init)
+    {
+      Eigen::VectorXd us = u.segment<4>(j * 4);
+      us_init_tmp.push_back(us);
+    }
+    // 2. run the fix_problem_quaternion
+    Eigen::VectorXd start_tmp = start.segment(j * 13, 13);
+    Eigen::VectorXd goal_tmp = goal.segment(j * 13, 13);
+    fix_problem_quaternion(start_tmp, goal_tmp, xs_init_tmp, us_init_tmp);
+    // 3. update the xs_init, us_init
+    for (size_t i = 0; i < xs_init.size(); ++i)
+    {
+      xs_init[i].segment<13>(j * 13) = xs_init_tmp[i];
+      // std::cout << "i, xs_init, after: " << i << ", " <<
+      // xs_init[i].segment<7>(j * 13).format(dynobench::FMT) << std::endl;
+    }
+    for (size_t i = 0; i < us_init.size(); ++i)
+    {
+      us_init[i].segment<4>(j * 4) = us_init_tmp[i];
+    }
+  }
+};
 
 void add_extra_state_time_rate(std::vector<Eigen::VectorXd> &xs_init,
                                Eigen::VectorXd &start) {
@@ -1096,12 +1137,22 @@ void __trajectory_optimization(
   std::vector<Eigen::VectorXd> xs_init__ = xs_init;
 
   if (startsWith(problem.robotType, "quad3d") &&
-      !startsWith(problem.robotType, "quad3dpayload")) {
+      !startsWith(problem.robotType, "quad3dpayload") &&
+      !startsWith(problem.robotType, "quad3d_coupled") &&
+      problem.robotTypes.size() == 1)
+  {
     DYNO_CHECK_EQ(start.size(), 13, "");
     DYNO_CHECK_EQ(goal.size(), 13, "");
     fix_problem_quaternion(start, goal, xs_init, us_init);
   }
-
+  // fix the quaternion issue for a homogeneous UAV team/joint robot ONLY!
+  if (problem.robotTypes.size() > 1 && problem.goal_times.size() &&
+      startsWith(problem.robotType, "quad3d"))
+  {
+    fix_problem_quaternion_joint(start, goal, xs_init, us_init,
+                                 problem.goal_times.size());
+  }
+  
   if (options_trajopt_local.smooth_traj) {
     for (size_t i = 0; i < num_smooth_iterations; i++) {
       xs_init = smooth_traj2(xs_init, *model_robot->state);
