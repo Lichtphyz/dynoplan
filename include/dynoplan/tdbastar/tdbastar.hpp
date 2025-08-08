@@ -223,7 +223,7 @@ namespace dynoplan
       else
       {
         robot->transform_primitive(*offset - motion->traj.states.back().head(
-                                                 robot->translation_invariance),
+                                                 robot->get_offset_dim()), // for quad it's 6
                                    motion->traj.states, motion->traj.actions, tmp,
                                    check_state, num_valid_states);
       }

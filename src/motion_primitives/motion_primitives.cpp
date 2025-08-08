@@ -723,6 +723,21 @@ void generate_primitives(const Options_trajopt &options_trajopt,
   double success_rate = double(trajectories.data.size()) / attempts;
   CSTR_(success_rate);
 }
+// Uniform SO(3) quaternion sampler
+Eigen::Quaterniond sample_uniform_quaternion()
+{
+  double u1 = Eigen::internal::random<double>(0.0, 1.0);
+  double u2 = Eigen::internal::random<double>(0.0, 1.0);
+  double u3 = Eigen::internal::random<double>(0.0, 1.0);
+
+  double q1 = std::sqrt(1 - u1) * std::sin(2 * M_PI * u2);
+  double q2 = std::sqrt(1 - u1) * std::cos(2 * M_PI * u2);
+  double q3 = std::sqrt(u1) * std::sin(2 * M_PI * u3);
+  double q4 = std::sqrt(u1) * std::cos(2 * M_PI * u3);
+  Eigen::Quaterniond q(q1, q2, q3, q4); // x, y, z, w
+  q.normalize();
+  return q;
+}
 // uses Stratified sampling
 void generate_primitives_spread(const Options_trajopt &options_trajopt,
                          const Options_primitives &options_primitives,
@@ -772,7 +787,11 @@ void generate_primitives_spread(const Options_trajopt &options_trajopt,
       if (options_primitives.dynamics == "unicycle1_v0"){
         d[2] = std::atan2(std::sin(d[2]), std::cos(d[2]));
       }
-
+      if (options_primitives.dynamics == "quad3d_v0"){
+        Eigen::Quaterniond q = sample_uniform_quaternion();
+        d.segment<4>(3) << q.x(), q.y(), q.z(), q.w();
+        d.segment<4>(3).normalize();
+      }
       std::cout << "desired displacement " << std::endl;
       CSTR_V(d);
 
