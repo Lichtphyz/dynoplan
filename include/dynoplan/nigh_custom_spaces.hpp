@@ -537,7 +537,7 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
 
     out = new NearestNeighborsNigh<_T, __SpaceAcrobot>(space, data_to_key);
 
-  } else if (startsWith(name, "quad3d")) {
+  } else if (startsWith(name, "quad3d") || startsWith(name, "mujoco")) {
 
     auto data_to_key = [robot, fun](_T const &m) {
       using Vector13d = Eigen::Matrix<double, 13, 1>;
@@ -687,7 +687,7 @@ ompl::NearestNeighbors<_T> *nigh_factory_t(
     __SpaceCar1 space(w(0), w(1), w(2));
     out = new NearestNeighborsNigh<_T, __SpaceCar1>(space, data_to_key);
   
-  } else if (startsWith(name, "quad3d")) {
+  } else if (startsWith(name, "quad3d") || startsWith(name, "mujoco")) {
   
     auto data_to_key = [robot, fun, reverse_search](_T const &m) {
       using Vector13d = Eigen::Matrix<double, 13, 1>;
