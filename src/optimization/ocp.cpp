@@ -1888,7 +1888,7 @@ void __trajectory_optimization(
 
   if (opti_out.success) {
     double traj_tol = 1e-2;
-    double goal_tol = 3e-2;
+    double goal_tol = 1e-1;
     double col_tol = 1e-2;
     double x_bound_tol = 1e-2;
     double u_bound_tol = 1e-2;

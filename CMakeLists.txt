@@ -58,6 +58,7 @@ add_executable(from_boost_to_msgpack
 add_executable(main_sst ./src/ompl/main_sst.cpp)
 add_executable(main_optimization ./src/optimization/main_optimization.cpp)
 add_executable(main_simulate_mujoco ./src/optimization/main_simulate_mujoco.cpp)
+add_executable(main_mujoco_opt_simulate ./src/optimization/main_mujoco_opt_simulate.cpp)
 add_executable(main_multirobot_optimization
                ./src/optimization/main_multirobot_optimization.cpp)
 
@@ -76,7 +77,8 @@ add_library(
   ./src/optimization/croco_models.cpp ./src/optimization/generate_ocp.cpp
   ./src/optimization/multirobot_optimization.cpp
   ./src/optimization/payloadTransport_optimization.cpp
-  ./src/optimization/unicyclesWithRods_optimization.cpp)
+  ./src/optimization/unicyclesWithRods_optimization.cpp
+  ./src/optimization/opt_simulate_mujoco.cpp)
 
 add_library(sst ./src/ompl/sst.cpp ./src/ompl/robots.cpp)
 add_library(rrt_to ./src/ompl/rrt_to.cpp ./src/ompl/robots.cpp)
@@ -119,6 +121,13 @@ target_include_directories(
   PUBLIC $<INSTALL_INTERFACE:include>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_include_directories(
+  main_mujoco_opt_simulate
+  PUBLIC $<INSTALL_INTERFACE:include>
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 
 target_include_directories(
   main_multirobot_optimization
@@ -262,6 +271,17 @@ target_link_libraries(
 
 target_link_libraries(
   main_simulate_mujoco
+  PRIVATE ${CROCODDYL_LIBRARIES}
+          optimization
+          Eigen3::Eigen
+          dynobench::dynobench
+          fcl
+          yaml-cpp
+          Boost::program_options
+          Boost::serialization)
+
+target_link_libraries(
+  main_mujoco_opt_simulate
   PRIVATE ${CROCODDYL_LIBRARIES}
           optimization
           Eigen3::Eigen

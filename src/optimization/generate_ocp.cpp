@@ -217,9 +217,9 @@ generate_problem(const Generate_params &gen_args,
           mk<State_cost>(nx, nu, nx, state_weights, state_ref);
       feats_run.push_back(state_feature);
     }
-    if (startsWith(gen_args.name, "quad3d") &&
-        !startsWith(gen_args.name, "quad3dpayload")) {
-      if (control_mode == Control_Mode::default_mode) {
+    if ((startsWith(gen_args.name, "quad3d") || startsWith(gen_args.name, "mujocoquad")) &&
+    gen_args.name.find("payload") == std::string::npos) { 
+     if (control_mode == Control_Mode::default_mode) {
         std::cout << "adding regularization on w and v, q" << std::endl;
         Vxd state_weights(13);
         state_weights.setOnes();
@@ -343,8 +343,8 @@ generate_problem(const Generate_params &gen_args,
       }
     }
 
-
-    if (startsWith(gen_args.name, "mujoco")) {
+    // std::cout << "THE NAME IS: " << gen_args.name << ", condition: " << startsWith(gen_args.name, "mujocoquadpayload"); 
+    if (startsWith(gen_args.name, "mujocoquadspayload")) {
       // TODO: refactor so that the features are local to the robots!!
       if (control_mode == Control_Mode::default_mode ||
           control_mode == Control_Mode::free_time) {

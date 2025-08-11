@@ -1649,6 +1649,7 @@ void mujoco_quads_payload_acc::calc(
   int nv = 6*(num_bodies);
   model->calcV(f, x.head(model->nx), u.head(model->nu));
   acc = f.tail(nv);
+  acc.segment<3>(3).setZero();
   r = k_acc * acc;
 }
 
@@ -1664,6 +1665,7 @@ void mujoco_quads_payload_acc::calcDiff(
   int nu = 4*(num_bodies -1);
   model->calcV(f, x.head(model->nx), u.head(model->nu));
   acc = f.tail(nv);
+  acc.segment<3>(3).setZero();
   model->calcDiffV(Jv_x, Jv_u, x.head(model->nx), u.head(model->nu));
 
   DYNO_CHECK_EQ(f.size(), 2*nv, AT);
@@ -1893,7 +1895,10 @@ void Dynamics::calcDiff(Eigen::Ref<Eigen::MatrixXd> Fx,
   } else if (control_mode == Control_Mode::free_time_linear) {
     DYNO_CHECK_GE(u(robot_model->nu), 0, AT);
     DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
-    if (!startsWith(robot_model->name, "quad3d")) {
+    if (!startsWith(robot_model->name, "quad3d")
+     && !(startsWith(robot_model->name, "mujocoquad"))
+     && !(startsWith(robot_model->name, "mujocoquadspayload"))
+    ) {
       robot_model->stepDiff_with_v(Fx.block(0, 0, _nx, _nx),
                                    Fu.block(0, 0, _nx, _nu), __v, x.head(_nx),
                                    u.head(_nu), dt * u(_nu));
@@ -1908,7 +1913,11 @@ void Dynamics::calcDiff(Eigen::Ref<Eigen::MatrixXd> Fx,
       Fu(_nx, _nu) = 1.;
     }
   } else if (control_mode == Control_Mode::free_time) {
-    if (!startsWith(robot_model->name, "mujoco_quadspayload") && !startsWith(robot_model->name, "quad3d")) {
+    if ((!startsWith(robot_model->name, "quad3d")) 
+     && !(startsWith(robot_model->name, "mujocoquadspayload"))
+    && (!startsWith(robot_model->name, "mujocoquad"))
+    )
+   {
       robot_model->stepDiff_with_v(Fx, Fu.block(0, 0, _nx, _nu), __v, x,
                                    u.head(_nu), dt * u(_nu));
       DYNO_CHECK_EQ(static_cast<size_t>(__v.size()), _nx, AT);
