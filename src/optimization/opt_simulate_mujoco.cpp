@@ -356,18 +356,22 @@ bool execute_optMujoco(std::string &env_file,
                        std::string &output_file_anytime,
                        dynobench::Trajectory &sol,
                        const std::string &dynobench_base,
-                       bool sum_robots_cost, dynobench::Trajectory &sol_broken) 
+                       bool sum_robots_cost, dynobench::Trajectory &sol_broken, std::string cfg_file) 
 {
     std::string models_base_path = dynobench_base + "/models/";
     Result_opti result;
     Options_trajopt options_trajopt;
-    options_trajopt.solver_id = 1;
-    options_trajopt.max_iter = 100;
-    options_trajopt.noise_level = 1e-4;
-    options_trajopt.collision_weight = 250;
-    options_trajopt.weight_goal = 550.;
-    options_trajopt.time_ref = 0.0;
-    options_trajopt.time_weight = 0.0;
+    if (cfg_file == "") {
+        options_trajopt.solver_id = 1;
+        options_trajopt.max_iter = 100;
+        options_trajopt.noise_level = 1e-4;
+        options_trajopt.collision_weight = 250;
+        options_trajopt.weight_goal = 600.;
+        options_trajopt.time_ref = 0.5;
+        options_trajopt.time_weight = 0.7;
+    } else { 
+        options_trajopt.read_from_yaml(cfg_file.c_str());
+    }
     dynobench::Problem problem(env_file.c_str());
     problem.models_base_path = models_base_path;
     dynobench::Trajectory init_guess;

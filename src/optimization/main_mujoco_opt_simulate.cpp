@@ -12,19 +12,10 @@ namespace fs = std::filesystem;
 
 using namespace dynobench;
 
-// Forward decls (link to your existing implementations)
-bool execute_optMujoco(std::string &env_file,
-                       std::string &init_file,
-                       std::string &results_file,
-                       std::string &output_file_anytime,
-                       dynobench::Trajectory &sol,
-                       const std::string &dynobench_base,
-                       bool sum_robots_cost, dynobench::Trajectory &sol_broken);
-
 int main(int argc, char** argv) {
   try {
     // --- CLI ---
-    std::string env_file, init_file, dynobench_base, results_path;
+    std::string env_file, init_file, dynobench_base, results_path, cfg_file;
     bool do_optimize = false;
     bool do_visualize = false;
     bool view_init = false;
@@ -36,10 +27,10 @@ int main(int argc, char** argv) {
       ("init_file",      po::value<std::string>(&init_file), "Initial guess YAML")
       ("results_path",   po::value<std::string>(&results_path)->default_value("../result_opt.yaml"), "Path to save optimized solution YAML (written only if -o succeeds)")
       ("dynobench_base", po::value<std::string>(&dynobench_base), "DynoBench base directory (contains models/)")
+      ("cfg_file",       po::value<std::string>(&cfg_file)->default_value(""), "optimization parameters, see optimization/options.hpp")
       ("optimize,o",     po::bool_switch(&do_optimize)->default_value(false), "Optimize the problem")
       ("visualize,v",    po::bool_switch(&do_visualize)->default_value(false), "Save videos; does not require -o")
       ("view_init,i",    po::bool_switch(&view_init)->default_value(false), "view the initial guess, does not require -o")
-      // new knobs
       ("views",           po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>{"auto"}, "auto"), "Views: 'auto' or list of side top front diag")
       ("repeats",         po::value<int>()->default_value(2), "Number of repeats inside each video (default 2)")
       ("video_prefix",    po::value<std::string>()->default_value(""), "Optional video base; outputs base_<view>.mp4")
@@ -87,7 +78,7 @@ int main(int argc, char** argv) {
       
       std::cout << "Optimizing and saving in: " << results_path << std::endl;
       feasible = execute_optMujoco(env_file, init_file, results_path, anytime_dummy,
-                                  sol, dynobench_base, /*sum_robots_cost*/ false, sol_broken);
+                                  sol, dynobench_base, /*sum_robots_cost*/ false, sol_broken, cfg_file);
       if (!feasible) {
         std::cerr << "Optimization failed.\n";
         sol_broken.to_yaml_format(results_path.c_str());
@@ -127,8 +118,7 @@ int main(int argc, char** argv) {
       bool view_ghost = (view_init && feasible);
       if (!do_optimize && !view_init && do_visualize) {
         // Visualize a feasible solution and dont show the initial guess
-        sol.to_yaml_format(results_path.c_str());
-        sol_to_show = sol;
+        sol_to_show.read_from_yaml(results_path.c_str());
         feasible = true;
       }
       // Views and repeats
