@@ -22,7 +22,7 @@ struct Options_trajopt {
   bool repair_init_guess = true;
   bool control_bounds = true;
   bool states_reg = false;
-  int solver_id = 0;
+  int solver_id = 1;
   double disturbance = 1e-5;
   int num_threads = 1;
 
@@ -34,13 +34,13 @@ struct Options_trajopt {
   double k_contour = 10.;
   double u_bound_scale = 1;
 
-  size_t max_iter = 100;
+  size_t max_iter = 50;
   size_t window_optimize = 20;
   size_t window_shift = 10;
   size_t max_mpc_iterations = 50;
   std::string debug_file_name = "/tmp/debug_file.yaml";
-  double weight_goal = 1000.;
-  double collision_weight = 100.;
+  double weight_goal = 500.;
+  double collision_weight = 350.;
   bool smooth_traj = true;
   bool shift_repeat = false;
 
