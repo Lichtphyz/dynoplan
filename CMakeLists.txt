@@ -312,5 +312,31 @@ target_link_libraries(
 # dynobench::dynobench ${OMPL_LIBRARIES} Boost::program_options
 # Boost::serialization ${LZ4_LIBRARIES})
 
+# dbA* with optimization for reverse search
+add_library(
+  compute_heu
+  ./src/tdbastar/compute_heu.cpp 
+  ./src/ompl/robots.cpp
+  ./src/tdbastar/options.cpp
+  ./src/dbastar/heuristics.cpp
+  ./src/tdbastar/tdbastar.cpp)
+  
+target_include_directories(
+  compute_heu
+  PUBLIC $<INSTALL_INTERFACE:include>
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+         ${OMPL_INCLUDE_DIRS}
+  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+          ${CMAKE_CURRENT_SOURCE_DIR}/deps/nigh/src)
+
+target_link_libraries(
+  compute_heu
+  PUBLIC Eigen3::Eigen dynobench::dynobench 
+  idbastar::optimization
+  idbastar::tdbastar
+  PRIVATE fcl ${OMPL_LIBRARIES} ${LZ4_LIBRARIES})
+
+add_library(idbastar::compute_heu ALIAS compute_heu) # for use in test folder
+
 enable_testing()
 add_subdirectory(test)

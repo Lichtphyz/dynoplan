@@ -1,43 +1,31 @@
-// #include "dynoplan/dbastar/dbastar.hpp"
-#include "dynoplan/tdbastar/tdbastar.hpp"
-
-#include <boost/graph/graphviz.hpp>
-
-// #include <flann/flann.hpp>
-// #include <msgpack.hpp>
-#include <ompl/base/spaces/SE2StateSpace.h>
 #include <yaml-cpp/yaml.h>
-
-// #include <boost/functional/hash.hpp>
-#include <boost/heap/d_ary_heap.hpp>
-#include <boost/program_options.hpp>
-
 // OMPL headers
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/control/SpaceInformation.h>
 #include <ompl/control/spaces/RealVectorControlSpace.h>
-
 #include <ompl/datastructures/NearestNeighbors.h>
-// #include <ompl/datastructures/NearestNeighborsFLANN.h>
 #include <ompl/datastructures/NearestNeighborsGNATNoThreadSafety.h>
 #include <ompl/datastructures/NearestNeighborsSqrtApprox.h>
-
-#include "dynobench/motions.hpp"
-#include "dynobench/robot_models.hpp"
-#include "dynoplan/ompl/robots.h"
 #include "ompl/base/Path.h"
 #include "ompl/base/ScopedState.h"
-
+#include <ompl/base/spaces/SE2StateSpace.h>
+// dynobench
+#include "dynobench/motions.hpp"
+#include "dynobench/robot_models.hpp"
+#include "dynobench/general_utils.hpp"
 // boost stuff for the graph
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/undirected_graph.hpp>
 #include <boost/property_map/property_map.hpp>
-
-#include "dynobench/general_utils.hpp"
-
+#include <boost/heap/d_ary_heap.hpp>
+#include <boost/program_options.hpp>
+#include <boost/graph/graphviz.hpp>
+// dynoplan
+#include "dynoplan/tdbastar/tdbastar.hpp"
 #include "dynoplan/nigh_custom_spaces.hpp"
+#include "dynoplan/ompl/robots.h"
 
 namespace dynoplan
 {
@@ -619,7 +607,7 @@ namespace dynoplan
     } });
 
     Expander expander(robot.get(), T_m,
-                      options_tdbastar.alpha * options_tdbastar.delta, /*add static motion*/false);
+                      options_tdbastar.alpha * options_tdbastar.delta, /*add static motion*/ false);
     if (options_tdbastar.alpha <= 0 || options_tdbastar.alpha >= 1)
     {
       ERROR_WITH_INFO("Alpha needs to be between 0 and 1!");
@@ -640,9 +628,10 @@ namespace dynoplan
     }
     else
     {
-      h_fun = std::make_shared<
-          Heu_roadmap_bwd<std::shared_ptr<AStarNode>, AStarNode>>(
-          robot, heuristic_nn, problem.goals[robot_id]);
+      h_fun = std::make_shared<Heu_euclidean>(robot, problem.goals[robot_id]);
+      // h_fun = std::make_shared<
+      // Heu_roadmap_bwd<std::shared_ptr<AStarNode>, AStarNode>>(
+      // robot, heuristic_nn, problem.goals[robot_id]);
     }
     // all_nodes manages the memory.
     // c-pointer don't have onwership.
@@ -1098,5 +1087,4 @@ namespace dynoplan
     out_info_tdb.data.insert(
         std::make_pair("num_primitives", std::to_string(motions.size())));
   }
-
 } // namespace dynoplan

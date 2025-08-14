@@ -1792,7 +1792,7 @@ void __trajectory_optimization(
       xs_out = traj_resample.states;
       us_out = traj_resample.actions;
 
-      if (problem.goal_times.size()) {
+      if (problem.goal_times.size() > 1) {
         auto ptr_derived =
             std::dynamic_pointer_cast<dynobench::Joint_robot>(model_robot);
         assert(ptr_derived);
@@ -1956,7 +1956,7 @@ void trajectory_optimization(const dynobench::Problem &problem,
   // std::string _base_path = "../../models/";
 
   std::shared_ptr<dynobench::Model_robot> model_robot;
-  if (problem.robotTypes.size() == 1 && problem.goal_times.size() == 0) {
+  if (problem.robotTypes.size() == 1 && problem.goals.size() > 0) {
     model_robot = dynobench::robot_factory(
         (problem.models_base_path + problem.robotType + ".yaml").c_str(),
         problem.p_lb, problem.p_ub);
@@ -1966,7 +1966,7 @@ void trajectory_optimization(const dynobench::Problem &problem,
         problem.p_ub, problem.is_residual, problem.is_conservative);
   }
 
-  if (problem.goal_times.size()) {
+  if (problem.goal_times.size() > 1) {
     auto ptr_derived =
         std::dynamic_pointer_cast<dynobench::Joint_robot>(model_robot);
     CHECK(ptr_derived, "multiple goal times only work for joint robot");
@@ -2477,7 +2477,7 @@ void trajectory_optimization(const dynobench::Problem &problem,
       }
 #endif
 
-      if (problem.goal_times.size()) {
+      if (problem.goals.size() > 1) {
         std::cout << "new goal times are " << std::endl;
 
         auto ptr_derived =
@@ -2493,7 +2493,7 @@ void trajectory_optimization(const dynobench::Problem &problem,
       __trajectory_optimization(problem, model_robot, tmp_solution,
                                 options_trajopt_local, traj, opti_out);
 
-      if (problem.goal_times.size()) {
+      if (problem.goals.size() > 1) {
         auto ptr_derived =
             std::dynamic_pointer_cast<dynobench::Joint_robot>(model_robot);
         CHECK(ptr_derived, "multiple goal times only work for joint robot");
