@@ -17,6 +17,7 @@ enum class PRIMITIVE_MODE {
   yamltobin = 12,
   sort_with_rand_config = 13,
   reduce_set = 14,
+  generate_spread = 15,
 };
 
 using namespace dynobench;
@@ -112,6 +113,17 @@ int main(int argc, const char *argv[]) {
     dynobench::Trajectories trajectories;
 
     generate_primitives_random(options_primitives, trajectories);
+
+    trajectories.save_file_boost(out_file.c_str());
+    trajectories.save_file_yaml((out_file + ".1000.yaml").c_str(), 1000);
+    trajectories.compute_stats("/tmp/tmp_stats.yaml");
+  }
+
+  if (mode == PRIMITIVE_MODE::generate_spread)
+  {
+    dynobench::Trajectories trajectories;
+
+    generate_primitives_spread(options_trajopt, options_primitives, trajectories);
 
     trajectories.save_file_boost(out_file.c_str());
     trajectories.save_file_yaml((out_file + ".1000.yaml").c_str(), 1000);

@@ -78,6 +78,10 @@ void generate_primitives(const Options_trajopt &options_trajopt,
                          const Options_primitives &options_primitives,
                          dynobench::Trajectories &trajectories);
 
+void generate_primitives_spread(const Options_trajopt &options_trajopt,
+                         const Options_primitives &options_primitives,
+                         dynobench::Trajectories &trajectories);
+
 void generate_primitives_random(const Options_primitives &options_primitives,
                                 dynobench::Trajectories &trajectories);
 void make_canonical(const dynobench::Trajectories &trajectories,

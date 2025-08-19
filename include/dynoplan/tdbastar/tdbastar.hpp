@@ -1,24 +1,17 @@
 #pragma once
 #include <algorithm>
-// // #include <boost/graph/graphviz.hpp>
 #include "Eigen/Core"
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <limits>
-//
-// #include <flann/flann.hpp>
-// #include <msgpack.hpp>
 #include <ompl/base/spaces/SE2StateSpace.h>
 #include <yaml-cpp/yaml.h>
-//
-// // #include <boost/functional/hash.hpp>
 #include <boost/heap/d_ary_heap.hpp>
 #include <boost/program_options.hpp>
 // OMPL
 #include <ompl/control/spaces/RealVectorControlSpace.h>
 #include <ompl/datastructures/NearestNeighbors.h>
-// #include "fclHelper.hpp"
 #include "dynobench/dyno_macros.hpp"
 #include "dynobench/motions.hpp"
 #include "dynoplan/ompl/robots.h"
@@ -107,16 +100,7 @@ namespace dynoplan
     }
   };
 
-  // float heuristic(std::shared_ptr<RobotOmpl> robot, const ob::State *s,
-  //                 const ob::State *g);
-
   using Edge = std::pair<int, int>;
-  // void backward_tree_with_dynamics(
-  //     const std::vector<std::vector<double>> &data,
-  //     std::vector<Motion> &primitives, std::vector<Edge> &edge_list,
-  //     std::vector<double> &distance_list,
-  //     std::shared_ptr<fcl::BroadPhaseCollisionManagerf> bpcm_env,
-  //     double delta_sq);
 
   enum class Duplicate_detection
   {
