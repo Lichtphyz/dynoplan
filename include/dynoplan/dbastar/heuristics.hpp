@@ -240,22 +240,52 @@ namespace dynoplan
 
     Heu_roadmap_bwd2(std::shared_ptr<dynobench::Model_robot> robot,
                      ompl::NearestNeighbors<_T> *heuristic_nn,
-                     const Eigen::VectorXd &goal)
-        : robot(robot), heuristic_nn(heuristic_nn), goal(goal) {}
+                     const Eigen::VectorXd &goal, bool nn)
+        : robot(robot), heuristic_nn(heuristic_nn), goal(goal), nn(nn) {}
 
     std::shared_ptr<dynobench::Model_robot> robot;
     ompl::NearestNeighbors<_T> *heuristic_nn;
     Eigen::VectorXd goal;
+    bool nn;
 
     virtual double h(const Eigen::VectorXd &x) override
     {
       assert(x.size() == robot->nx);
-      if (heuristic_nn)
+      if (heuristic_nn && !nn)
       {
         auto fake_node = std::make_shared<_Node>();
         fake_node->state_eig = x;
         auto nearest_node = heuristic_nn->nearest(fake_node);
         return (nearest_node->gScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig));
+      }
+      if (heuristic_nn && nn)
+      {
+        auto fake_node = std::make_shared<_Node>();
+        fake_node->state_eig = x;
+
+        const int K = 4; // forest, wall
+        std::vector<std::shared_ptr<_Node>> neighbors;
+        heuristic_nn->nearestK(fake_node, K, neighbors);
+
+        if (neighbors.empty())
+        {
+          // fallback to direct heuristic
+          return robot->lower_bound_time(x, goal);
+        }
+
+        double weighted_sum = 0.0;
+        double weight_total = 0.0;
+
+        for (auto &n : neighbors)
+        {
+          double dist = robot->lower_bound_time(n->state_eig, x);
+          double w = 1.0 / (dist + 1e-6); // inverse distance weighting
+          double h_val = n->gScore;
+          // robot->lower_bound_time(x, n->state_eig);
+          weighted_sum += w * h_val;
+          weight_total += w;
+        }
+        return weighted_sum / weight_total; // weighted average
       }
       else
       {

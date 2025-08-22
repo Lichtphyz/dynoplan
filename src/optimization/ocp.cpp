@@ -1956,7 +1956,7 @@ void trajectory_optimization(const dynobench::Problem &problem,
   // std::string _base_path = "../../models/";
 
   std::shared_ptr<dynobench::Model_robot> model_robot;
-  if (problem.robotTypes.size() == 1 && problem.goals.size() > 0) {
+  if (problem.robotTypes.size() == 1) {
     model_robot = dynobench::robot_factory(
         (problem.models_base_path + problem.robotType + ".yaml").c_str(),
         problem.p_lb, problem.p_ub);
