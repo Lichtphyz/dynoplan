@@ -3,7 +3,7 @@
 	url = git@github.com:quimortiz/dynobench
 [submodule "deps/nigh"]
 	path = deps/nigh
-	url = https://github.com/UNC-Robotics/nigh.git
+	url = git@github.com:IMRCLab/nigh.git
 [submodule "dynomotions"]
 	path = dynomotions
 	url = git@github.com:quimortiz/dynomotions.git
