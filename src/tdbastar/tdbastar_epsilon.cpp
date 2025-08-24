@@ -569,11 +569,6 @@ namespace dynoplan
       bool residual_force, float w, bool run_focal_heuristic)
   {
 
-#ifdef DBG_PRINTS
-    std::cout << "*** options_tdbastar ***" << std::endl;
-    options_tdbastar.print(std::cout);
-    std::cout << "***" << std::endl;
-#endif
     std::cout << "*** Running tdbA*-epsilon for robot " << robot_id << " ***"
               << std::endl;
     for (const auto &constraint : constraints)
@@ -796,8 +791,6 @@ namespace dynoplan
     const bool check_intermediate_goal = true;
     const size_t num_check_goal = 0;
 
-    bool all_print = false;
-
     std::function<bool(Eigen::Ref<Eigen::VectorXd>)> ff =
         [&](Eigen::Ref<Eigen::VectorXd> state)
     {
@@ -927,43 +920,9 @@ namespace dynoplan
       best_node_bestFocalHeuristicgScore =
           best_node->arrivals.at(best_node_bestFocalHeuristicIdx).gScore;
 
-      if (all_print && !reverse_search)
-      {
-        std::cout << "/////////////////////" << std::endl;
-        std::cout << "Open set" << std::endl;
-        for (auto &f : open)
-        {
-          std::cout << f->state_eig.format(FMT) << std::endl;
-          std::cout << "focalHeuristic: " << f->bestFocalHeuristic << std::endl;
-          std::cout << "hScore: " << f->hScore << std::endl;
-          std::cout << "fScore: " << f->fScore << std::endl;
-        }
-        std::cout << "/////////////////////" << std::endl;
-        std::cout << "Focal set" << std::endl;
-        for (auto &f1 : focal)
-        {
-          auto f2 = *f1;
-          std::cout << f2->state_eig.format(FMT) << std::endl;
-          std::cout << "focalHeuristic: " << f2->bestFocalHeuristic << std::endl;
-          std::cout << "hScore: " << f2->hScore << std::endl;
-          std::cout << "fScore: " << f2->fScore << std::endl;
-        }
-
-        std::cout << "open set size: " << open.size() << std::endl;
-        std::cout << "focal set size: " << focal.size() << std::endl;
-
-        std::cout << "b/n state: " << best_node->state_eig.format(FMT)
-                  << std::endl;
-        std::cout << "b/n focalheuristic: " << best_node->bestFocalHeuristic
-                  << std::endl;
-        std::cout << "b/n hScore: " << best_node->hScore << std::endl;
-        std::cout << "b/n fscore: " << best_node->fScore << std::endl;
-      }
-
       if (time_bench.expands % print_every == 0)
       {
         print_search_status();
-        // print_node_expansion_status();
       }
       time_bench.expands++;
       // CHECK if best node is close ENOUGH to goal
@@ -1193,51 +1152,6 @@ namespace dynoplan
                   ++n->current_arrival_idx; // either better focalHeuristic or
                                             // gScore, not clear here, just points
                                             // to the last added element
-// sanity check
-#ifdef DEBUG_REWIRING
-                  size_t self_arrival_idx = n->current_arrival_idx;
-                  const auto self_arrival = n->arrivals[self_arrival_idx];
-                  if (self_arrival.used_motion != static_cast<size_t>(-1) &&
-                      !reverse_search)
-                  {
-                    std::shared_ptr<AStarNode> parent = self_arrival.came_from;
-                    size_t parent_arrival_idx = self_arrival.arrival_idx;
-                    const auto parent_arrival =
-                        parent->arrivals[parent_arrival_idx];
-                    float test_g =
-                        parent_arrival.gScore +
-                        motions.at(self_arrival.used_motion).get_cost();
-                    std::cout << "///////// rewiring /////////" << std::endl;
-                    std::cout << "self-gscore, self-arrival-idx: "
-                              << self_arrival.gScore << ", " << self_arrival_idx
-                              << std::endl;
-                    std::cout << "parent-gscore, parent-arrival-idx: "
-                              << parent_arrival.gScore << ", "
-                              << parent_arrival_idx << std::endl;
-                    std::cout << "test g: " << test_g << std::endl;
-                    std::cout << "tentative gscore: " << tentative_g << std::endl;
-                    if (test_g != tentative_g)
-                    {
-                      std::cout << "gscore mismatch" << std::endl;
-                      std::cout << "tentative gscore: " << tentative_g
-                                << std::endl;
-                      std::cout << "test gscore: " << test_g << std::endl;
-                      std::cout << "cost motion: " << cost_motion << std::endl;
-                      std::cout << "computed cost: "
-                                << motions.at(self_arrival.used_motion).get_cost()
-                                << std::endl;
-                      std::cout << "parent gscore: " << parent_arrival.gScore
-                                << std::endl; //  parent.gScore
-                      std::cout << "loop over arrivals, gscore, focal heuristic"
-                                << std::endl;
-                      for (auto &arr : parent->arrivals)
-                      {
-                        std::cout << arr.gScore << ", " << arr.focalHeuristic
-                                  << std::endl;
-                      }
-                    }
-                  }
-#endif
                   if (n->is_in_open)
                   {
                     time_bench.time_queue +=
@@ -1314,23 +1228,11 @@ namespace dynoplan
       } // end of lazy_trajs loop
     } // out of while loop
 
-    // Rewire means rewire + use arrival list
-    // OPTION 1:
-    // Rewire=1, Always add node=0 --> Best, difficult to implement. (Fast)
-    // OPTION 2:
-    // Rewire=0 Always add node=1 + check on time --> Complete when check on times
-    // threshold goes to zero (around .5 seconds) (Slower) OPTION 3: Rewire=0
-    // Always add node=0 ---> Not Complete.  (Fast)
-
     time_bench.time_search = watch.elapsed_ms();
 
     time_bench.time_nearestMotion += expander.time_in_nn;
     time_bench.time_nearestNode =
         time_bench.time_nearestNode_add + time_bench.time_nearestNode_search;
-
-    // TODO: Add.
-    // time_collision_heuristic
-    // time_check_constraints
     time_bench.extra_time =
         time_bench.time_search - time_bench.time_collisions -
         time_bench.time_nearestNode_add - time_bench.time_nearestNode_search -
@@ -1341,8 +1243,6 @@ namespace dynoplan
         time_bench.time_rebuild_focal_set;
 
     assert(time_bench.extra_time >= 0);
-    // assert(time_bench.extra_time / time_bench.time_search * 100 <
-    //        20.); // sanity check -- could this fail?
 
     std::cout << "extra time " << time_bench.extra_time << " "
               << time_bench.extra_time / time_bench.time_search * 100 << "%"
