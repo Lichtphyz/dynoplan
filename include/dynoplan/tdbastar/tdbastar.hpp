@@ -51,7 +51,7 @@ namespace dynoplan
     double fScore;
     double gScore;
     double hScore;
-
+    double out_degree; // est needs it
     std::vector<int> motions{}; // list of applicable motions
     // std::vector<int> conflicts{};
 
