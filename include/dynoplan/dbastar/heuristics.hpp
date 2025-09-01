@@ -295,6 +295,75 @@ namespace dynoplan
 
     virtual ~Heu_roadmap_bwd2() override {};
   };
+  // for EST
+  template <typename _T, typename _Node>
+  class HeuRoadmapBwdNearestR : Heu_fun
+  {
+  public:
+    HeuRoadmapBwdNearestR(std::shared_ptr<dynobench::Model_robot> robot,
+                          ompl::NearestNeighbors<_T> *heuristic_nn,
+                          const Eigen::VectorXd &goal,
+                          bool nn,
+                          double radius = 0.5) // radius for neighbor search
+        : robot(robot), heuristic_nn(heuristic_nn), goal(goal), nn(nn), search_radius(radius)
+    {
+    }
+
+    std::shared_ptr<dynobench::Model_robot> robot;
+    ompl::NearestNeighbors<_T> *heuristic_nn; // raw pointe
+    Eigen::VectorXd goal;
+    bool nn;
+    double search_radius; // radius for nearest neighbors
+
+    void addNode(const _T &node)
+    {
+      if (heuristic_nn)
+        heuristic_nn->add(node);
+    }
+
+    virtual double h(const Eigen::VectorXd &x)
+    {
+      assert(x.size() == robot->nx);
+      if (heuristic_nn->size() == 0)
+        return -1.0;
+      auto fake_node = std::make_shared<_Node>();
+      fake_node->state_eig = x;
+      auto nearest_node = heuristic_nn->nearest(fake_node);
+      if (!nearest_node)
+      {
+        return -1.0;
+      }
+      return (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig));
+
+      // if (!heuristic_nn)
+      //   return -1.0;
+
+      // auto fake_node = std::make_shared<_Node>();
+      // fake_node->state_eig = x;
+
+      // std::vector<std::shared_ptr<_Node>> neighbors;
+      // heuristic_nn->nearestR(fake_node, search_radius, neighbors); // neighbors within radius
+
+      // if (neighbors.empty())
+      // {
+      //   return -1.0; // no neighbors, fallback
+      // }
+
+      // // compute best neighbor
+      // double best_h = std::numeric_limits<double>::infinity();
+      // for (auto &nbr : neighbors)
+      // {
+      //   double dist_cost = robot->lower_bound_time(fake_node->state_eig, nbr->state_eig);
+      //   double gval = nbr->gScore + dist_cost; // forward search, not reverse
+      //   if (gval < best_h)
+      //     best_h = gval;
+      // }
+
+      // return best_h;
+    }
+
+    virtual ~HeuRoadmapBwdNearestR() override = default;
+  };
 
   void build_heuristic_distance_new(
       const std::vector<Eigen::VectorXd> &batch_samples,
