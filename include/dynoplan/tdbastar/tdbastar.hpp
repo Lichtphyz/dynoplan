@@ -52,7 +52,7 @@ namespace dynoplan
     double gScore;
     double hScore;
     std::shared_ptr<AStarNode> came_from;
-    double out_degree; // est needs it
+    double out_degree;          // est needs it
     std::vector<int> motions{}; // list of applicable motions
     // std::vector<int> conflicts{};
 

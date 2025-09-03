@@ -304,7 +304,7 @@ namespace dynoplan
                           ompl::NearestNeighbors<_T> *heuristic_nn,
                           const Eigen::VectorXd &goal,
                           bool nn,
-                          double radius = 0.5) // radius for neighbor search
+                          double radius = 0.1) // radius for neighbor search
         : robot(robot), heuristic_nn(heuristic_nn), goal(goal), nn(nn), search_radius(radius)
     {
     }
@@ -329,37 +329,34 @@ namespace dynoplan
       auto fake_node = std::make_shared<_Node>();
       fake_node->state_eig = x;
       auto nearest_node = heuristic_nn->nearest(fake_node);
+      // std::cout << "from N: " << (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig)) << std::endl;
       if (!nearest_node)
-      {
         return -1.0;
-      }
+      // if (robot->distance(fake_node->state_eig, nearest_node->state_eig) > 0.2 /*threshold*/)
+      // {
+      //   std::cout << "Moving to R-based" << std::endl;
+      //   std::vector<std::shared_ptr<_Node>> neighbors;
+      //   heuristic_nn->nearestR(fake_node, /*search_radius*/ 0.5, neighbors); // neighbors within radius
+      //   if (neighbors.empty())
+      //   {
+      //     std::cout << "no neighbors" << std::endl;
+      //     return -1.0; // no neighbors, fallback
+      //   }
+      //   double weighted_sum = 0.0;
+      //   double weight_total = 0.0;
+      //   for (auto &nbr : neighbors)
+      //   {
+      //     double dist = robot->lower_bound_time(fake_node->state_eig, nbr->state_eig);
+      //     double weight = 1.0 / dist;
+      //     double hval = nbr->hScore + dist;
+      //     weighted_sum += weight * hval;
+      //     weight_total += weight;
+      //   }
+      //   double weighted_avg = weighted_sum / weight_total;
+      //   std::cout << "from R-based: " << weighted_avg << std::endl;
+      //   return weighted_avg;
+      // }
       return (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig));
-
-      // if (!heuristic_nn)
-      //   return -1.0;
-
-      // auto fake_node = std::make_shared<_Node>();
-      // fake_node->state_eig = x;
-
-      // std::vector<std::shared_ptr<_Node>> neighbors;
-      // heuristic_nn->nearestR(fake_node, search_radius, neighbors); // neighbors within radius
-
-      // if (neighbors.empty())
-      // {
-      //   return -1.0; // no neighbors, fallback
-      // }
-
-      // // compute best neighbor
-      // double best_h = std::numeric_limits<double>::infinity();
-      // for (auto &nbr : neighbors)
-      // {
-      //   double dist_cost = robot->lower_bound_time(fake_node->state_eig, nbr->state_eig);
-      //   double gval = nbr->gScore + dist_cost; // forward search, not reverse
-      //   if (gval < best_h)
-      //     best_h = gval;
-      // }
-
-      // return best_h;
     }
 
     virtual ~HeuRoadmapBwdNearestR() override = default;
