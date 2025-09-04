@@ -330,32 +330,9 @@ namespace dynoplan
       fake_node->state_eig = x;
       auto nearest_node = heuristic_nn->nearest(fake_node);
       // std::cout << "from N: " << (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig)) << std::endl;
-      if (!nearest_node)
+      if (!nearest_node || robot->distance(fake_node->state_eig, nearest_node->state_eig) > 1.0 /*threshold*/)
         return -1.0;
-      // if (robot->distance(fake_node->state_eig, nearest_node->state_eig) > 0.2 /*threshold*/)
-      // {
-      //   std::cout << "Moving to R-based" << std::endl;
-      //   std::vector<std::shared_ptr<_Node>> neighbors;
-      //   heuristic_nn->nearestR(fake_node, /*search_radius*/ 0.5, neighbors); // neighbors within radius
-      //   if (neighbors.empty())
-      //   {
-      //     std::cout << "no neighbors" << std::endl;
-      //     return -1.0; // no neighbors, fallback
-      //   }
-      //   double weighted_sum = 0.0;
-      //   double weight_total = 0.0;
-      //   for (auto &nbr : neighbors)
-      //   {
-      //     double dist = robot->lower_bound_time(fake_node->state_eig, nbr->state_eig);
-      //     double weight = 1.0 / dist;
-      //     double hval = nbr->hScore + dist;
-      //     weighted_sum += weight * hval;
-      //     weight_total += weight;
-      //   }
-      //   double weighted_avg = weighted_sum / weight_total;
-      //   std::cout << "from R-based: " << weighted_avg << std::endl;
-      //   return weighted_avg;
-      // }
+
       return (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig));
     }
 
