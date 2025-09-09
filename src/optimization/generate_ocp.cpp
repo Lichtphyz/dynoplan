@@ -343,11 +343,12 @@ generate_problem(const Generate_params &gen_args,
       }
     }
 
-    // std::cout << "THE NAME IS: " << gen_args.name << ", condition: " << startsWith(gen_args.name, "mujocoquadpayload"); 
+    // std::cout << "THE NAME IS: " << gen_args.name << ", condition: " << startsWith(gen_args.name, "mujocoquadspayload"); 
     if (startsWith(gen_args.name, "mujocoquadspayload")) {
       // TODO: refactor so that the features are local to the robots!!
-      if (control_mode == Control_Mode::default_mode ||
-          control_mode == Control_Mode::free_time) {
+      if ((control_mode == Control_Mode::default_mode) 
+        ||  (control_mode == Control_Mode::free_time)
+        ) {
         std::cout << "adding regularization on the acceleration! " << std::endl;
 
         auto ptr_derived =
@@ -355,9 +356,37 @@ generate_problem(const Generate_params &gen_args,
                 gen_args.model_robot);
 
         // Additionally, add regularization!!
-        ptr<Cost> state_feature = mk<State_cost>(
-            nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
-        feats_run.push_back(state_feature);
+        if (gen_args.name == "mujocoquadspayload_switch3") {
+            Vxd state_weights = Vxd::Zero(nx);
+            Vxd state_ref     = Vxd::Zero(nx);
+
+          const int t_wp = 110;
+          if (std::abs(int(t) - t_wp) <= 4) {
+            V3d payload_pos(0.0, 0.0, 0.75);
+            V3d quad1_pos(0.0 ,  0.25, 1.0); 
+            V3d quad2_pos(0.0 , -0.25, 1.0); 
+            V3d quad3_pos(-0.25,   0.0, 1.0); 
+
+            state_weights.segment<3>(0)  = 1500.0 * V3d::Ones();
+            state_weights.segment<3>(7)  = 1500.0 * V3d::Ones();
+            state_weights.segment<3>(14) = 1500.0 * V3d::Ones();
+            state_weights.segment<3>(21) = 0.0 * V3d::Ones();
+            state_ref.segment<3>(0)      = payload_pos;
+            state_ref.segment<3>(7)      = quad1_pos;
+            state_ref.segment<3>(14)     = quad2_pos;
+            state_ref.segment<3>(21)     = quad3_pos;
+            std::cout << "adding waypoint constraints at t: " << t
+            << "\nstate_weights: " << state_weights.transpose()
+            << "\nstate_ref: " << state_ref.transpose() << std::endl;
+            ptr<Cost> state_feature = mk<State_cost>(
+              nx, nu, nx, state_weights, state_ref);
+              feats_run.push_back(state_feature);
+          } 
+        } else {
+          ptr<Cost> state_feature = mk<State_cost>(
+              nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
+          feats_run.push_back(state_feature);
+        }
 
 
         ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
