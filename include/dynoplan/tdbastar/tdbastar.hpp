@@ -319,7 +319,7 @@ namespace dynoplan
         Eigen::VectorXd zero_action(robot->nu);
         zero_action.setZero();
         if (robot->name == "Integrator2_3d")
-          num_steps = 6; // for short motions
+          num_steps = 5; // for short motions
         Eigen::VectorXd fixed_state(robot->nx);
         fixed_state.setZero();
         if (robot->name == "unicycle1")
