@@ -51,13 +51,13 @@ namespace dynoplan
     double fScore;
     double gScore;
     double hScore;
-
+    std::shared_ptr<AStarNode> came_from;
+    double out_degree;          // est needs it
     std::vector<int> motions{}; // list of applicable motions
     // std::vector<int> conflicts{};
 
     double get_cost() const { return gScore; }
 
-    // const AStarNode *came_from;
     fcl::Vector3d used_offset;
     // size_t used_motion;
     int intermediate_state =

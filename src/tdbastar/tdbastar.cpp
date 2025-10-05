@@ -628,10 +628,10 @@ namespace dynoplan
     }
     else
     {
-      h_fun = std::make_shared<Heu_euclidean>(robot, problem.goals[robot_id]);
-      // h_fun = std::make_shared<
-      // Heu_roadmap_bwd<std::shared_ptr<AStarNode>, AStarNode>>(
-      // robot, heuristic_nn, problem.goals[robot_id]);
+      // h_fun = std::make_shared<Heu_euclidean>(robot, problem.goals[robot_id]);
+      h_fun = std::make_shared<
+          Heu_roadmap_bwd<std::shared_ptr<AStarNode>, AStarNode>>(
+          robot, heuristic_nn, problem.goals[robot_id]);
     }
     // all_nodes manages the memory.
     // c-pointer don't have onwership.

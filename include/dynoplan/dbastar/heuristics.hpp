@@ -295,6 +295,49 @@ namespace dynoplan
 
     virtual ~Heu_roadmap_bwd2() override {};
   };
+  // for EST
+  template <typename _T, typename _Node>
+  class HeuRoadmapBwdNearestR : Heu_fun
+  {
+  public:
+    HeuRoadmapBwdNearestR(std::shared_ptr<dynobench::Model_robot> robot,
+                          ompl::NearestNeighbors<_T> *heuristic_nn,
+                          const Eigen::VectorXd &goal,
+                          bool nn,
+                          double radius = 0.1) // radius for neighbor search
+        : robot(robot), heuristic_nn(heuristic_nn), goal(goal), nn(nn), search_radius(radius)
+    {
+    }
+
+    std::shared_ptr<dynobench::Model_robot> robot;
+    ompl::NearestNeighbors<_T> *heuristic_nn; // raw pointe
+    Eigen::VectorXd goal;
+    bool nn;
+    double search_radius; // radius for nearest neighbors
+
+    void addNode(const _T &node)
+    {
+      if (heuristic_nn)
+        heuristic_nn->add(node);
+    }
+
+    virtual double h(const Eigen::VectorXd &x)
+    {
+      assert(x.size() == robot->nx);
+      if (heuristic_nn->size() == 0)
+        return -1.0;
+      auto fake_node = std::make_shared<_Node>();
+      fake_node->state_eig = x;
+      auto nearest_node = heuristic_nn->nearest(fake_node);
+      // std::cout << "from N: " << (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig)) << std::endl;
+      if (!nearest_node || robot->distance(fake_node->state_eig, nearest_node->state_eig) > 1.0 /*threshold*/)
+        return -1.0;
+
+      return (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig));
+    }
+
+    virtual ~HeuRoadmapBwdNearestR() override = default;
+  };
 
   void build_heuristic_distance_new(
       const std::vector<Eigen::VectorXd> &batch_samples,

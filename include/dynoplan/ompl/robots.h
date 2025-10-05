@@ -253,12 +253,13 @@ void load_motion_primitives(const std::string &motionsFile, RobotOmpl &robot,
 
 void traj_to_motion(const dynobench::Trajectory &traj,
                     dynobench::Model_robot &robot, Motion &motion_out,
-                    bool compute_col);
+                    bool compute_col,
+                    bool merged = false);
 
 void motion_to_motion(std::vector<Motion> &robot_motions,
                       std::vector<Motion> &motion_out,
                       dynobench::Model_robot &robot, size_t N);
 
 void compute_col_shape(Motion &m, dynobench::Model_robot &robot);
-
+void compute_col_shape_merged(Motion &m, dynobench::Model_robot &robot);
 } // namespace dynoplan
