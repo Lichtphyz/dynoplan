@@ -303,18 +303,15 @@ namespace dynoplan
     HeuRoadmapBwdNearestR(std::shared_ptr<dynobench::Model_robot> robot,
                           ompl::NearestNeighbors<_T> *heuristic_nn,
                           const Eigen::VectorXd &goal,
-                          bool nn,
-                          double radius = 0.1) // radius for neighbor search
-        : robot(robot), heuristic_nn(heuristic_nn), goal(goal), nn(nn), search_radius(radius)
+                          double threshold) // radius for neighbor search
+        : robot(robot), heuristic_nn(heuristic_nn), goal(goal), distance_threshold(threshold)
     {
     }
 
     std::shared_ptr<dynobench::Model_robot> robot;
     ompl::NearestNeighbors<_T> *heuristic_nn; // raw pointe
     Eigen::VectorXd goal;
-    bool nn;
-    double search_radius; // radius for nearest neighbors
-
+    double distance_threshold;
     void addNode(const _T &node)
     {
       if (heuristic_nn)
@@ -329,8 +326,7 @@ namespace dynoplan
       auto fake_node = std::make_shared<_Node>();
       fake_node->state_eig = x;
       auto nearest_node = heuristic_nn->nearest(fake_node);
-      // std::cout << "from N: " << (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig)) << std::endl;
-      if (!nearest_node || robot->distance(fake_node->state_eig, nearest_node->state_eig) > 1.0 /*threshold*/)
+      if (!nearest_node || robot->distance(fake_node->state_eig, nearest_node->state_eig) > distance_threshold /*threshold*/)
         return -1.0;
 
       return (nearest_node->hScore + robot->lower_bound_time(fake_node->state_eig, nearest_node->state_eig));

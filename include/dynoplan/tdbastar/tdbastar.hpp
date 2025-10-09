@@ -313,6 +313,7 @@ namespace dynoplan
         LazyTraj lazy_traj{.offset = &offset, .robot = robot, .motion = m};
         lazy_trajs.push_back(lazy_traj);
       }
+      add_static_motions = false;
       if (add_static_motions)
       {
         int num_steps = 13;
@@ -335,6 +336,28 @@ namespace dynoplan
             // std::cout << "Adding sampled theta: " << theta << "(" << theta * 180.0 / M_PI << " deg.)" << std::endl;
             Motion *m = new Motion();
             fixed_state(2) = theta; // deterministically set orientation
+            m->traj.states.resize(num_steps, fixed_state);
+            m->traj.actions.resize(num_steps - 1, zero_action);
+            LazyTraj tmp_lazy_traj{.offset = &offset, .robot = robot, .motion = m};
+            lazy_trajs.push_back(tmp_lazy_traj);
+          }
+        }
+        if (robot->name == "car_with_trailers")
+        {
+          std::random_device rd;
+          std::mt19937 gen(rd()); // gen(42);
+          std::uniform_real_distribution<> dis(-M_PI, M_PI);
+          std::uniform_real_distribution<> dis_trailer(-0.4, 0.4);
+          // better sample, otherwise sensitive to goal theta value
+          for (size_t i = 0; i < 1; i++)
+          {
+            double theta1 = dis(gen);
+            theta1 = wrap_angle(theta1);
+            fixed_state(2) = theta1; // deterministically set orientation
+            double theta2 = dis_trailer(gen);
+            theta2 = wrap_angle(theta2);
+            fixed_state(3) = theta1 + theta2;
+            Motion *m = new Motion();
             m->traj.states.resize(num_steps, fixed_state);
             m->traj.actions.resize(num_steps - 1, zero_action);
             LazyTraj tmp_lazy_traj{.offset = &offset, .robot = robot, .motion = m};
