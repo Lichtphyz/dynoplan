@@ -935,7 +935,7 @@ namespace dynoplan
       }
       bool is_at_goal_no_constraints = false;
       if (distance_to_goal <
-          options_tdbastar.delta_factor_goal * options_tdbastar.delta)
+          options_tdbastar.delta_factor_goal * options_tdbastar.goal_delta)
       {
         is_at_goal_no_constraints = true;
         time_bench.time_check_constraints += timed_fun_void([&]
@@ -1025,13 +1025,16 @@ namespace dynoplan
                             robot->lower_bound_time(best_node->state_eig,
                                                     traj_wrapper.get_state(0));
 
-        focalHeuristic =
-            best_node_bestFocalHeuristic +
-            lowLevelfocalHeuristicSequential(
-                solution, time_bench, all_robots, problem.robotTypes,
-                traj_wrapper, robot_id, robot_obj_sets,
-                best_node_bestFocalHeuristicgScore, // best_node->gScore
-                robot_objs, reachesGoal, residual_force);
+        if (reverse_search)
+          focalHeuristic = 0;
+        else
+          focalHeuristic =
+              best_node_bestFocalHeuristic +
+              lowLevelfocalHeuristicSequential(
+                  solution, time_bench, all_robots, problem.robotTypes,
+                  traj_wrapper, robot_id, robot_obj_sets,
+                  best_node_bestFocalHeuristicgScore, // best_node->gScore
+                  robot_objs, reachesGoal, residual_force);
 
         // good for small group cases (n <= 8)
         // focalHeuristic =
