@@ -27,28 +27,28 @@ void Generate_params::print(std::ostream &out) const {
 
   out << pre << "goal" << after << goal.transpose() << std::endl;
   out << pre << "start" << after << start.transpose() << std::endl;
-  out << pre << "states" << std::endl;
-  for (const auto &s : states)
-    out << "  - " << s.format(FMT) << std::endl;
+  // out << pre << "states" << std::endl;
+  // for (const auto &s : states)
+  //   out << "  - " << s.format(FMT) << std::endl;
   out << pre << "states_weights" << std::endl;
   for (const auto &s : states_weights)
     out << "  - " << s.format(FMT) << std::endl;
-  out << pre << "actions" << std::endl;
-  for (const auto &s : actions)
-    out << "  - " << s.format(FMT) << std::endl;
+  // out << pre << "actions" << std::endl;
+  // for (const auto &s : actions)
+  //   out << "  - " << s.format(FMT) << std::endl;
 }
 
 ptr<crocoddyl::ShootingProblem>
 generate_problem(const Generate_params &gen_args,
                  const Options_trajopt &options_trajopt) {
 
-  std::cout << "**\nGENERATING PROBLEM\n**\nArgs:\n" << std::endl;
-  gen_args.print(std::cout);
-  std::cout << "**\n" << std::endl;
+  std::cout << "**\nGENERATING PROBLEM" << std::endl;
+  // gen_args.print(std::cout);
+  // std::cout << "**\n" << std::endl;
 
-  std::cout << "**\nOpti Params\n**\n" << std::endl;
-  options_trajopt.print(std::cout);
-  std::cout << "**\n" << std::endl;
+  // std::cout << "**\nOpti Params\n**\n" << std::endl;
+  // options_trajopt.print(std::cout);
+  // std::cout << "**\n" << std::endl;
 
   std::vector<ptr<Cost>> feats_terminal;
   ptr<crocoddyl::ActionModelAbstract> am_terminal;
@@ -107,45 +107,6 @@ generate_problem(const Generate_params &gen_args,
 
     std::vector<ptr<Cost>> feats_run;
 
-    if (gen_args.model_robot->name == "joint_robot") {
-
-      auto ptr_derived = std::dynamic_pointer_cast<dynobench::Joint_robot>(
-          gen_args.model_robot);
-
-      std::vector<int> goal_times = ptr_derived->goal_times;
-
-      print_vec(goal_times.data(), goal_times.size());
-      CSTR_(gen_args.N);
-
-      if (goal_times.size()) {
-        Eigen::VectorXd weights = Eigen::VectorXd::Zero(nx);
-        for (size_t j = 0; j < goal_times.size(); j++) {
-          if (goal_times.at(j) <= t + 1) {
-            size_t start_index = std::accumulate(
-                ptr_derived->nxs.begin(), ptr_derived->nxs.begin() + j, 0);
-            size_t nx = ptr_derived->nxs.at(j);
-            weights.segment(start_index, nx).setOnes();
-          }
-        }
-
-        if (weights.sum() > 1e-12) {
-          std::cout << "warning, adding special goal cost" << std::endl;
-          ptr<Cost> state_feature = mk<State_cost_model>(
-              gen_args.model_robot, nx, nu,
-              gen_args.penalty * options_trajopt.weight_goal * weights,
-              gen_args.goal);
-
-          feats_run.emplace_back(state_feature);
-        }
-      }
-    }
-
-    if (control_mode == Control_Mode::free_time_linear) {
-      if (t > 0)
-        feats_run.emplace_back(mk<Time_linear_reg>(nx, nu));
-      feats_run.emplace_back(mk<Min_time_linear>(nx, nu));
-    }
-
     feats_run.push_back(control_feature);
 
     if (options_trajopt.soft_control_bounds) {
@@ -174,49 +135,6 @@ generate_problem(const Generate_params &gen_args,
     }
     //
 
-    if (startsWith(gen_args.name, "car1")) {
-
-      auto ptr_derived =
-          std::dynamic_pointer_cast<dynobench::Model_car_with_trailers>(
-              gen_args.model_robot);
-
-      CHECK(ptr_derived, AT);
-      std::cout << "adding diff angle cost" << std::endl;
-      ptr<Cost> state_feature = mk<Diff_angle_cost>(nx, nu, ptr_derived);
-      feats_run.push_back(state_feature);
-    }
-
-    if (startsWith(gen_args.name, "quad2d") &&
-        !startsWith(gen_args.name, "quad2dpole")) {
-      std::cout << "adding regularization on w and v" << std::endl;
-
-      Vxd state_weights(nx);
-      state_weights.setZero();
-      state_weights.segment<3>(3) = .2 * V3d::Ones();
-      Vxd state_ref = Vxd::Zero(nx);
-
-      ptr<Cost> state_feature =
-          mk<State_cost>(nx, nu, nx, state_weights, state_ref);
-      feats_run.push_back(state_feature);
-
-      if (control_mode == Control_Mode::default_mode) {
-        ptr<Cost> acc_cost =
-            mk<Acceleration_cost_quad2d>(gen_args.model_robot, nx, nu);
-        feats_run.push_back(acc_cost);
-      }
-    }
-    if (startsWith(gen_args.name, "quad2dpole")) {
-      std::cout << "adding regularization on w and v, and vq" << std::endl;
-
-      Vxd state_weights(nx);
-      state_weights.setZero();
-      state_weights.segment<4>(4) = .2 * V4d::Ones();
-      Vxd state_ref = Vxd::Zero(nx);
-
-      ptr<Cost> state_feature =
-          mk<State_cost>(nx, nu, nx, state_weights, state_ref);
-      feats_run.push_back(state_feature);
-    }
     if ((startsWith(gen_args.name, "quad3d") || startsWith(gen_args.name, "mujocoquad")) &&
     gen_args.name.find("payload") == std::string::npos) { 
      if (control_mode == Control_Mode::default_mode) {
@@ -234,85 +152,18 @@ generate_problem(const Generate_params &gen_args,
             mk<State_cost>(nx, nu, nx, state_weights, state_ref);
         feats_run.push_back(state_feature);
 
-        std::cout << "adding cost on quaternion norm" << std::endl;
+        // std::cout << "adding cost on quaternion norm" << std::endl;
         ptr<Cost> quat_feature = mk<Quaternion_cost>(nx, nu);
         boost::static_pointer_cast<Quaternion_cost>(quat_feature)->k_quat = 1.;
         feats_run.push_back(quat_feature);
 
-        std::cout << "adding regularization on acceleration" << std::endl;
+        // std::cout << "adding regularization on acceleration" << std::endl;
         ptr<Cost> acc_feature =
             mk<Quad3d_acceleration_cost>(gen_args.model_robot);
         boost::static_pointer_cast<Quad3d_acceleration_cost>(acc_feature)
             ->k_acc = .005;
 
         feats_run.push_back(acc_feature);
-      } else if (control_mode == Control_Mode::contour) {
-        std::cout << "adding regularization on w and v, q" << std::endl;
-        Vxd state_weights(14);
-        state_weights.setOnes();
-        state_weights *= 0.05;
-        state_weights.segment(0, 3).setZero();
-        state_weights.segment(3, 4).setConstant(0.1);
-        state_weights(13) = 0;
-
-        Vxd state_ref = Vxd::Zero(14);
-        state_ref(6) = 1.;
-
-        ptr<Cost> state_feature =
-            mk<State_cost>(nx, nu, nx, state_weights, state_ref);
-        feats_run.push_back(state_feature);
-
-        std::cout << "adding cost on quaternion norm" << std::endl;
-        ptr<Cost> quat_feature = mk<Quaternion_cost>(nx, nu);
-        boost::static_pointer_cast<Quaternion_cost>(quat_feature)->k_quat = 1.;
-        feats_run.push_back(quat_feature);
-      }
-    }
-    if (startsWith(gen_args.name, "quad3d_v5") && t == gen_args.N / 2 + 1) {
-      std::cout << "adding special waypoint" << std::endl;
-      Vxd state_weights(13);
-      state_weights.setZero();
-      state_weights.segment(3, 4).array() = 200;
-      Vxd state_ref = Vxd::Zero(13);
-      Eigen::Vector4d ref_quat(1, 0, 0, 0);
-      state_ref.segment(3, 4) = ref_quat;
-
-      CSTR_V(state_weights);
-      CSTR_V(state_ref);
-      // std::cout << state_weights << std::endl;
-      // std::cout << state_ref << std::endl;
-      ptr<Cost> state_feature =
-          mk<State_cost>(nx, nu, nx, state_weights, state_ref);
-      feats_run.push_back(state_feature);
-    }
-
-    if (startsWith(gen_args.name, "quad3d_v6")) {
-      std::cout << "adding special waypoint" << std::endl;
-      Vxd state_weights(13);
-      state_weights.setZero();
-      state_weights.segment(0, 3).array() = 200;
-      Vxd state_ref = Vxd::Zero(13);
-
-      bool add_waypoint = true;
-      // t1 = 20, t2 = 40, t3=60, t4=80
-      if (t == 20) {
-        state_ref.head(3) = Eigen::Vector3d(1, 1, 1.5);
-      } else if (t == 40) {
-        state_ref.head(3) = Eigen::Vector3d(-1, 1, 1.5);
-      } else if (t == 60) {
-        state_ref.head(3) = Eigen::Vector3d(-1, -1, 1.5);
-      } else if (t == 80) {
-        state_ref.head(3) = Eigen::Vector3d(1, -1, 1.5);
-      } else {
-        add_waypoint = false;
-      }
-
-      if (add_waypoint) {
-        CSTR_V(state_weights);
-        CSTR_V(state_ref);
-        ptr<Cost> state_feature =
-            mk<State_cost>(nx, nu, nx, state_weights, state_ref);
-        feats_run.push_back(state_feature);
       }
     }
 
@@ -320,10 +171,10 @@ generate_problem(const Generate_params &gen_args,
       // TODO: refactor so that the features are local to the robots!!
       if (control_mode == Control_Mode::default_mode ||
           control_mode == Control_Mode::free_time) {
-        std::cout << "adding regularization on the acceleration! " << std::endl;
-        std::cout << "adding regularization on the cable position -- Lets say "
-                     "we want more or less 30 degress"
-                  << std::endl;
+        // std::cout << "adding regularization on the acceleration! " << std::endl;
+        // std::cout << "adding regularization on the cable position -- Lets say "
+        //              "we want more or less 30 degress"
+        //           << std::endl;
 
         auto ptr_derived =
             std::dynamic_pointer_cast<dynobench::Model_quad3dpayload_n>(
@@ -342,14 +193,10 @@ generate_problem(const Generate_params &gen_args,
         NOT_IMPLEMENTED;
       }
     }
-
-    // std::cout << "THE NAME IS: " << gen_args.name << ", condition: " << startsWith(gen_args.name, "mujocoquadspayload"); 
     if (startsWith(gen_args.name, "mujocoquadspayload")) {
       // TODO: refactor so that the features are local to the robots!!
-      if ((control_mode == Control_Mode::default_mode) 
-        ||  (control_mode == Control_Mode::free_time)
-        ) {
-        std::cout << "adding regularization on the acceleration! " << std::endl;
+      if (control_mode == Control_Mode::free_time) {
+        // std::cout << "adding regularization on the acceleration! " << std::endl;
 
         auto ptr_derived =
             std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(
@@ -375,9 +222,9 @@ generate_problem(const Generate_params &gen_args,
             state_ref.segment<3>(7)      = quad1_pos;
             state_ref.segment<3>(14)     = quad2_pos;
             state_ref.segment<3>(21)     = quad3_pos;
-            std::cout << "adding waypoint constraints at t: " << t
-            << "\nstate_weights: " << state_weights.transpose()
-            << "\nstate_ref: " << state_ref.transpose() << std::endl;
+            // std::cout << "adding waypoint constraints at t: " << t
+            // << "\nstate_weights: " << state_weights.transpose()
+            // << "\nstate_ref: " << state_ref.transpose() << std::endl;
             ptr<Cost> state_feature = mk<State_cost>(
               nx, nu, nx, state_weights, state_ref);
               feats_run.push_back(state_feature);
@@ -392,29 +239,7 @@ generate_problem(const Generate_params &gen_args,
         ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
             gen_args.model_robot, gen_args.model_robot->k_acc);
         feats_run.push_back(acc_cost);
-      } else {
-        // QUIM TODO: Check if required!!
-        NOT_IMPLEMENTED;
-      }
-    }
-    if (startsWith(gen_args.name, "acrobot")) {
-      // TODO: refactor so that the features are local to the robots!!
-      if (control_mode == Control_Mode::default_mode) {
-        std::cout << "adding regularization on v" << std::endl;
-        Vxd state_weights(4);
-        Vxd state_ref = Vxd::Zero(4);
-
-        state_weights.setOnes();
-        state_weights *= .0001;
-        state_weights.segment(0, 2).setZero();
-
-        ptr<Cost> state_feature =
-            mk<State_cost>(nx, nu, nx, state_weights, state_ref);
-        feats_run.push_back(state_feature);
-
-        ptr<Cost> acc_cost = mk<Acceleration_cost_acrobot>(nx, nu);
-        feats_run.push_back(acc_cost);
-      }
+      } 
     }
 
     if (gen_args.states_weights.size() && gen_args.states.size()) {
@@ -446,32 +271,6 @@ generate_problem(const Generate_params &gen_args,
       }
 
       feats_run.push_back(mk<State_bounds>(nx, nu, nx, v, dyn->x_weightb));
-    }
-
-    if (gen_args.contour_control) {
-
-      CHECK(gen_args.linear_contour, AT);
-
-      ptr<Contour_cost_alpha_u> contour_alpha_u =
-          mk<Contour_cost_alpha_u>(nx, nu);
-      contour_alpha_u->k = options_trajopt.k_linear;
-
-      feats_run.push_back(contour_alpha_u);
-
-      // std::cout << "warning, no contour in non-terminal states" << std::endl;
-      // ptr<Contour_cost_x> contour_x =
-      //     mk<Contour_cost_x>(nx, nu, gen_args.interpolator);
-      // contour_x->weight = options_trajopt.k_contour;
-
-      // std::cout << "warning, no cost on alpha in non-terminal states"
-      //           << std::endl;
-      // idea: use this only if it is close
-      // ptr<Contour_cost_alpha_x> contour_alpha_x =
-      //     mk<Contour_cost_alpha_x>(nx, nu);
-      // contour_alpha_x->k = .1 * options_trajopt.k_linear;
-
-      // feats_run.push_back(contour_x);
-      // feats_run.push_back(contour_alpha_x);
     }
 
     boost::shared_ptr<crocoddyl::ActionModelAbstract> am_run =

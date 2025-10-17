@@ -62,22 +62,6 @@ public:
   }
 };
 
-// const char *SOLVER_txt[] = {"traj_opt",
-//                             "traj_opt_free_time",
-//                             "traj_opt_smooth_then_free_time",
-//                             "mpc",
-//                             "mpcc",
-//                             "mpcc2",
-//                             "traj_opt_mpcc",
-//                             "mpc_nobound_mpcc",
-//                             "mpcc_linear",
-//                             "time_search_traj_opt",
-//                             "mpc_adaptative",
-//                             "traj_opt_free_time_proxi",
-//                             "traj_opt_no_bound_bound",
-//                             "traj_opt_free_time_proxi_linear",
-//                             "none"};
-
 #if 0
 void read_from_file(File_parser_inout &inout) {
 
@@ -555,17 +539,17 @@ void write_states_controls(const std::vector<Eigen::VectorXd> &xs,
   __traj.actions = us;
   __traj.states = xs;
 
-  {
-    std::ofstream out(filename + std::string(".raw.yaml"));
-    out << "states:" << std::endl;
-    for (auto &x : xs) {
-      out << "- " << x.format(FMT) << std::endl;
-    }
-    out << "actions:" << std::endl;
-    for (auto &u : us) {
-      out << "- " << u.format(FMT) << std::endl;
-    }
-  }
+  // {
+  //   std::ofstream out(filename + std::string(".raw.yaml"));
+  //   out << "states:" << std::endl;
+  //   for (auto &x : xs) {
+  //     out << "- " << x.format(FMT) << std::endl;
+  //   }
+  //   out << "actions:" << std::endl;
+  //   for (auto &u : us) {
+  //     out << "- " << u.format(FMT) << std::endl;
+  //   }
+  // }
 
   if (__traj.actions.front().size() > model_robot->nu) {
     for (size_t i = 0; i < __traj.actions.size(); i++) {
@@ -596,7 +580,7 @@ void write_states_controls(const std::vector<Eigen::VectorXd> &xs,
   CSTR_(filename);
 
   std::cout << "Check traj in controls " << std::endl;
-  __traj.check(model_robot, true);
+  __traj.check(model_robot, false);
   std::cout << "Check traj in controls -- DONE " << std::endl;
   __traj.to_yaml_format(init_guess);
 }
@@ -958,7 +942,7 @@ void solve_for_fixed_penalty(
   }
 
   // store init guess
-  report_problem(problem_croco, xs, us, "/tmp/dynoplan/report-0.yaml");
+  // report_problem(problem_croco, xs, us, "/tmp/dynoplan/report-0.yaml");
   std::cout << "solving with croco " << AT << std::endl;
 
   std::string random_id = gen_random(6);
@@ -1003,7 +987,7 @@ void solve_for_fixed_penalty(
   }
 
   write_states_controls(xs_out, us_out, model_robot, problem, filename.c_str());
-  report_problem(problem_croco, xs_out, us_out, "/tmp/dynoplan/report-1.yaml");
+  // report_problem(problem_croco, xs_out, us_out, "/tmp/dynoplan/report-1.yaml");
 };
 
 void __trajectory_optimization(
@@ -1021,13 +1005,7 @@ void __trajectory_optimization(
   Options_trajopt options_trajopt_local = options_trajopt;
 
   std::vector<SOLVER> solvers{SOLVER::traj_opt,
-                              SOLVER::traj_opt_free_time_proxi,
-                              SOLVER::mpc,
-                              SOLVER::mpcc,
-                              SOLVER::mpcc2,
-                              SOLVER::mpcc_linear,
-                              SOLVER::mpc_adaptative,
-                              SOLVER::traj_opt_free_time_proxi_linear};
+                              SOLVER::traj_opt_free_time_proxi};
 
   CHECK(__in_if(solvers,
                 [&](const SOLVER &s) {
@@ -1048,21 +1026,21 @@ void __trajectory_optimization(
 
   auto callback_dyno = mk<CallVerboseDyno>();
 
-  {
-    dynobench::Trajectory __init_guess = init_guess;
-    __init_guess.start = problem.start;
-    __init_guess.goal = problem.goal;
-    std::cout << "checking traj input of __trajectory_optimization "
-              << std::endl;
-    __init_guess.check(model_robot, true);
-    std::cout << "checking traj input of __trajectory_optimization -- DONE "
-              << std::endl;
-  }
+  // {
+  //   dynobench::Trajectory __init_guess = init_guess;
+  //   __init_guess.start = problem.start;
+  //   __init_guess.goal = problem.goal;
+  //   std::cout << "checking traj input of __trajectory_optimization "
+  //             << std::endl;
+  //   __init_guess.check(model_robot, false);
+  //   std::cout << "checking traj input of __trajectory_optimization -- DONE "
+  //             << std::endl;
+  // }
 
   size_t ddp_iterations = 0;
   double ddp_time = 0;
 
-  bool check_with_finite_diff = true;
+  bool check_with_finite_diff = false;
   // std::string name = problem.robotType;
   std::string name = model_robot->name;
   size_t _nx = model_robot->nx;
@@ -1137,564 +1115,12 @@ void __trajectory_optimization(
       debug_file_yaml << "  - " << x.format(FMT) << std::endl;
   }
 
-  bool __free_time_mode = solver == SOLVER::traj_opt_free_time_proxi ||
-                          solver == SOLVER::traj_opt_free_time_proxi_linear;
+  bool __free_time_mode = solver == SOLVER::traj_opt_free_time_proxi;
 
-  // WINDOW APPROACH
-  if (solver == SOLVER::mpc || solver == SOLVER::mpcc ||
-      solver == SOLVER::mpcc_linear || solver == SOLVER::mpc_adaptative) {
-
-    DYNO_CHECK_GEQ(options_trajopt_local.window_optimize,
-                   options_trajopt_local.window_shift, AT);
-
-    bool finished = false;
-
-    std::vector<Vxd> xs_opt, us_opt;
-    std::vector<Vxd> xs, us;
-
-    std::vector<Vxd> xs_init_rewrite = xs_init;
-    std::vector<Vxd> us_init_rewrite = us_init;
-
-    std::vector<Vxd> xs_warmstart, us_warmstart;
-    xs_warmstart = xs_init;
-    us_warmstart = us_init;
-
-    xs_opt.push_back(start);
-    xs_init_rewrite.at(0) = start;
-
-    debug_file_yaml << "opti:" << std::endl;
-
-    auto times = Vxd::LinSpaced(xs_init.size(), 0, (xs_init.size() - 1) * dt);
-
-    double max_alpha = times(times.size() - 1);
-
-    ptr<dynobench::Interpolator> path =
-        mk<dynobench::Interpolator>(times, xs_init, model_robot->state);
-    ptr<dynobench::Interpolator> path_u =
-        mk<dynobench::Interpolator>(times.head(times.size() - 1), us_init);
-
-    Vxd previous_state = start;
-    ptr<crocoddyl::ShootingProblem> problem_croco;
-
-    Vxd goal_mpc(_nx);
-
-    bool is_last = false;
-
-    double total_time = 0;
-    size_t counter = 0;
-    size_t total_iterations = 0;
-    size_t window_optimize_i = 0;
-
-    bool close_to_goal = false;
-
-    Vxd goal_with_alpha(_nx + 1);
-    goal_with_alpha.head(_nx) = goal;
-    goal_with_alpha(_nx) = max_alpha;
-
-    bool last_reaches_ = false;
-    size_t index_first_goal = 0;
-
-    Generate_params gen_args;
-
-    auto fun_is_goal = [&](const auto &x) {
-      return model_robot->distance(x.head(_nx), goal) < 1e-2;
-    };
-
-    while (!finished) {
-      if (solver == SOLVER::mpc) {
-        DYNO_CHECK_GEQ(
-            int(N) - int(counter * options_trajopt_local.window_shift), 0, "");
-        size_t remaining_steps =
-            N - counter * options_trajopt_local.window_shift;
-
-        const bool adaptative_last_window = true;
-
-        window_optimize_i = options_trajopt_local.window_optimize;
-        if (adaptative_last_window) {
-          window_optimize_i = std::min(window_optimize_i, remaining_steps);
-        }
-
-        if (options_trajopt_local.window_optimize > remaining_steps)
-          goal_mpc = goal;
-        else
-          goal_mpc = xs_init.at(counter * options_trajopt_local.window_shift +
-                                window_optimize_i);
-
-        std::cout << "goal_i:" << goal_mpc.transpose() << std::endl;
-        std::cout << "start_i:" << previous_state.transpose() << std::endl;
-
-        gen_args = Generate_params{
-            .name = name,
-            .N = window_optimize_i,
-            .goal = goal_mpc,
-            .start = previous_state,
-            .model_robot = model_robot,
-            .collisions = options_trajopt_local.collision_weight > 1e-3};
-
-        problem_croco = generate_problem(gen_args, options_trajopt_local);
-        is_last = options_trajopt_local.window_optimize > remaining_steps;
-
-        if (options_trajopt_local.use_warmstart) {
-          warmstart_mpc(xs, us, xs_init, us_init, counter, window_optimize_i,
-                        options_trajopt_local.window_shift);
-        } else {
-          xs = std::vector<Vxd>(window_optimize_i + 1, gen_args.start);
-          us = std::vector<Vxd>(window_optimize_i, Vxd::Zero(model_robot->nu));
-        }
-
-      }
-
-      else if (solver == SOLVER::mpc_adaptative) {
-
-        std::cout << "previous state is " << previous_state.format(FMT)
-                  << std::endl;
-        auto it = std::min_element(
-            path->x.begin(), path->x.end(), [&](const auto &a, const auto &b) {
-              return model_robot->distance(a, previous_state) <
-                     model_robot->distance(b, previous_state);
-            });
-
-        size_t index = std::distance(path->x.begin(), it);
-        std::cout << "starting with index " << index << std::endl;
-        std::cout << "Non adaptative index would be: "
-                  << counter * options_trajopt_local.window_shift << std::endl;
-
-        window_optimize_i = options_trajopt_local.window_optimize;
-        // next goal:
-        size_t goal_index = index + window_optimize_i;
-        CSTR_(goal_index);
-        if (goal_index > xs_init.size() - 1) {
-          std::cout << "trying to reach the goal " << std::endl;
-          goal_mpc = goal;
-        } else {
-          goal_mpc = xs_init.at(goal_index);
-        }
-
-        std::cout << "goal_i:" << goal_mpc.transpose() << std::endl;
-        std::cout << "start_i:" << previous_state.transpose() << std::endl;
-
-        gen_args = Generate_params{
-            .name = name,
-            .N = window_optimize_i,
-            .goal = goal_mpc,
-            .start = previous_state,
-            .model_robot = model_robot,
-            .collisions = options_trajopt_local.collision_weight > 1e-3};
-
-        size_t nx, nu;
-        problem_croco = generate_problem(gen_args, options_trajopt_local);
-
-        if (options_trajopt_local.use_warmstart) {
-          mpc_adaptative_warmstart(counter, window_optimize_i, xs, us,
-                                   xs_warmstart, us_warmstart, model_robot,
-                                   options_trajopt_local.shift_repeat, path,
-                                   path_u, max_alpha);
-
-        } else {
-          xs = std::vector<Vxd>(window_optimize_i + 1, gen_args.start);
-          us = std::vector<Vxd>(window_optimize_i, Vxd::Zero(nu));
-        }
-      } else if (solver == SOLVER::mpcc || solver == SOLVER::mpcc_linear) {
-
-        window_optimize_i =
-            std::min(options_trajopt_local.window_optimize, us_init.size());
-
-        std::cout << "previous state " << previous_state.format(FMT)
-                  << std::endl;
-        auto it = std::min_element(
-            path->x.begin(), path->x.end(), [&](const auto &a, const auto &b) {
-              return model_robot->distance(a, previous_state) <=
-                     model_robot->distance(b, previous_state);
-            });
-        size_t first_index = std::distance(path->x.begin(), it);
-        double alpha_of_first = path->times(first_index);
-
-        size_t expected_last_index = first_index + window_optimize_i;
-
-        Vxd alpha_refs =
-            Vxd::LinSpaced(window_optimize_i + 1, alpha_of_first,
-                           alpha_of_first + window_optimize_i * dt);
-
-        double expected_final_alpha =
-            std::min(alpha_of_first + window_optimize_i * dt, max_alpha);
-
-        std::cout << STR(first_index, ":") << std::endl;
-        std::cout << STR(expected_final_alpha, ":") << std::endl;
-        std::cout << STR(expected_last_index, ":") << std::endl;
-        std::cout << STR(alpha_of_first, ":") << std::endl;
-        std::cout << STR(max_alpha, ":") << std::endl;
-
-        size_t nx, nu;
-
-        Vxd start_ic(_nx + 1);
-        start_ic.head(_nx) = previous_state.head(_nx);
-        start_ic(_nx) = alpha_of_first;
-
-        bool goal_cost = false;
-
-        if (expected_final_alpha > max_alpha - 1e-3 || close_to_goal) {
-          std::cout << "alpha_refs > max_alpha || close to goal" << std::endl;
-          goal_cost = true; // new
-        }
-
-        std::cout << "goal " << goal_with_alpha.format(FMT) << std::endl;
-        std::cout << STR_(goal_cost) << std::endl;
-
-        std::vector<Vxd> state_weights;
-        std::vector<Vxd> _states(window_optimize_i);
-
-        int try_faster = 5;
-        if (last_reaches_) {
-          std::cout << "last_reaches_ adds goal cost special" << std::endl;
-          std::cout << "try_faster: " << try_faster << std::endl;
-
-          state_weights.resize(window_optimize_i);
-          _states.resize(window_optimize_i);
-
-          for (size_t t = 0; t < window_optimize_i; t++) {
-            if (t > index_first_goal - options_trajopt_local.window_shift -
-                        try_faster)
-              state_weights.at(t) = 1. * Vxd::Ones(_nx + 1);
-            else
-              state_weights.at(t) = Vxd::Zero(_nx + 1);
-          }
-
-          for (size_t t = 0; t < window_optimize_i; t++) {
-            _states.at(t) = goal_with_alpha;
-          }
-        }
-
-        gen_args = Generate_params{
-            .free_time = false,
-            .name = name,
-            .N = window_optimize_i,
-            .goal = goal,
-            .start = start_ic,
-            .model_robot = model_robot,
-            .states = _states,
-            .states_weights = state_weights,
-            .actions = {},
-            .contour_control = true,
-            .interpolator = path,
-            .max_alpha = max_alpha,
-            .linear_contour = solver == SOLVER::mpcc_linear,
-            .goal_cost = goal_cost,
-            .collisions = options_trajopt_local.collision_weight > 1e-3
-
-        };
-
-        std::cout << "gen problem " << STR_(AT) << std::endl;
-        problem_croco = generate_problem(gen_args, options_trajopt_local);
-
-        if (options_trajopt_local.use_warmstart) {
-
-          warmstart_mpcc(xs_warmstart, us_warmstart, counter, window_optimize_i,
-                         xs, us, model_robot,
-                         options_trajopt_local.shift_repeat, path, path_u, dt,
-                         max_alpha, xs_init, us_init);
-
-        } else {
-          std::cout << "no warmstart " << std::endl;
-          Vxd u0c(_nu + 1);
-          u0c.head(_nu) = model_robot->u_0;
-          u0c(_nu) = dt;
-          xs = std::vector<Vxd>(window_optimize_i + 1, gen_args.start);
-          us = std::vector<Vxd>(window_optimize_i, u0c);
-        }
-      }
-
-      DYNO_CHECK_EQ(xs.size(), window_optimize_i + 1, AT);
-      DYNO_CHECK_EQ(us.size(), window_optimize_i, AT);
-
-      if (!options_trajopt_local.use_finite_diff &&
-          options_trajopt_local.check_with_finite_diff) {
-        check_problem_with_finite_diff(options_trajopt_local, gen_args,
-                                       problem_croco, xs, us);
-      }
-
-      // report problem
-
-      // auto models = problem->get_runningModels();
-
-      crocoddyl::SolverBoxFDDP ddp(problem_croco);
-      ddp.set_th_stop(options_trajopt_local.th_stop);
-      ddp.set_th_acceptnegstep(options_trajopt_local.th_acceptnegstep);
-
-      if (options_trajopt_local.CALLBACKS) {
-        std::vector<ptr<crocoddyl::CallbackAbstract>> cbs;
-        cbs.push_back(mk<crocoddyl::CallbackVerbose>());
-        if (store_iterations) {
-          cbs.push_back(callback_dyno);
-        }
-        ddp.setCallbacks(cbs);
-      }
-
-      if (options_trajopt_local.noise_level > 1e-8) {
-        add_noise(options_trajopt_local.noise_level, xs, us, model_robot);
-      }
-
-      report_problem(problem_croco, xs, us, "/tmp/dynoplan/report-0.yaml");
-
-      std::string random_id = gen_random(6);
-
-      {
-        std::string filename =
-            folder_tmptraj + "init_guess_" + random_id + ".yaml";
-        write_states_controls(xs, us, model_robot, problem, filename.c_str());
-      }
-
-      std::cout << "CROCO optimize" << AT << std::endl;
-      crocoddyl::Timer timer;
-      ddp.solve(xs, us, options_trajopt_local.max_iter, false,
-                options_trajopt_local.init_reg);
-      std::cout << "CROCO optimize -- DONE" << std::endl;
-
-      if (store_iterations) {
-        callback_dyno->store();
-      }
-
-      {
-        std::string filename = folder_tmptraj + "opt_" + random_id + ".yaml";
-        write_states_controls(ddp.get_xs(), ddp.get_us(), model_robot, problem,
-                              filename.c_str());
-
-        std::string filename_raw =
-            folder_tmptraj + "opt_" + random_id + ".raw.yaml";
-        dynobench::Trajectory traj;
-        traj.states = ddp.get_xs();
-        traj.actions = ddp.get_us();
-        traj.to_yaml_format(filename_raw.c_str());
-      }
-
-      double time_i = timer.get_duration();
-      size_t iterations_i = ddp.get_iter();
-      ddp_iterations += ddp.get_iter();
-      ddp_time += timer.get_duration();
-      report_problem(problem_croco, ddp.get_xs(), ddp.get_us(),
-                     "/tmp/dynoplan/report-1.yaml");
-
-      std::cout << "time: " << time_i << std::endl;
-      std::cout << "iterations: " << iterations_i << std::endl;
-      total_time += time_i;
-      total_iterations += iterations_i;
-      std::vector<Vxd> xs_i_sol = ddp.get_xs();
-      std::vector<Vxd> us_i_sol = ddp.get_us();
-
-      previous_state =
-          xs_i_sol.at(options_trajopt_local.window_shift).head(_nx);
-
-      size_t copy_steps = 0;
-
-      // After optimization, I check If I am reaching the goal
-      if (solver == SOLVER::mpc_adaptative) {
-
-        size_t final_index = window_optimize_i;
-        Vxd x_last = ddp.get_xs().at(final_index);
-        std::cout << "**\n" << std::endl;
-        std::cout << "checking as final index: " << final_index << std::endl;
-        std::cout << "last state: " << x_last.format(FMT) << std::endl;
-        std::cout << "true last state: " << ddp.get_xs().back().format(FMT)
-                  << std::endl;
-        std::cout << "distance to goal: "
-                  << model_robot->distance(x_last.head(_nx), goal) << std::endl;
-
-        if (fun_is_goal(x_last)) {
-          std::cout << " x last " << x_last.format(FMT) << "reaches the goal"
-                    << std::endl;
-
-          std::cout << "setting x last to true " << std::endl;
-          is_last = true;
-        }
-
-      } else if (solver == SOLVER::mpcc || solver == SOLVER::mpcc_linear) {
-
-        std::cout << "if final reaches the goal, i stop" << std::endl;
-        std::cout << "ideally, I should check if I can check the goal "
-                     "faster, "
-                     "with a small linear search "
-                  << std::endl;
-        size_t final_index = window_optimize_i;
-        std::cout << "final index is " << final_index << std::endl;
-
-        double alpha_mpcc = ddp.get_xs().at(final_index)(_nx);
-        Vxd x_last = ddp.get_xs().at(final_index);
-        last_reaches_ = fun_is_goal(ddp.get_xs().back());
-
-        std::cout << "**\n" << std::endl;
-        std::cout << "checking as final index: " << final_index << std::endl;
-        std::cout << "alpha_mpcc:" << alpha_mpcc << std::endl;
-        std::cout << "last state: " << x_last.format(FMT) << std::endl;
-        std::cout << "true last state: " << ddp.get_xs().back().format(FMT)
-                  << std::endl;
-        std::cout << "distance to goal: "
-                  << model_robot->distance(x_last.head(_nx), goal) << std::endl;
-
-        std::cout << "last_reaches_: " << last_reaches_ << std::endl;
-        std::cout << "\n**\n";
-
-        if (last_reaches_) {
-
-          auto it = std::find_if(ddp.get_xs().begin(), ddp.get_xs().end(),
-                                 [&](const auto &x) { return fun_is_goal(x); });
-
-          bool __flag = it != ddp.get_xs().end();
-          CHECK(__flag, AT);
-
-          index_first_goal = std::distance(ddp.get_xs().begin(), it);
-          std::cout << "index first goal " << index_first_goal << std::endl;
-        }
-
-        if (std::fabs(alpha_mpcc - times(times.size() - 1)) < 1. &&
-            fun_is_goal(x_last)) {
-
-          is_last = true;
-
-          std::cout << "checking first state that reaches the goal "
-                    << std::endl;
-
-          auto it = std::find_if(ddp.get_xs().begin(), ddp.get_xs().end(),
-                                 [&](const auto &x) { return fun_is_goal(x); });
-
-          assert(it != ddp.get_xs().end());
-
-          window_optimize_i = std::distance(ddp.get_xs().begin(), it);
-          std::cout << "changing the number of steps to optimize(copy) to "
-                    << window_optimize_i << std::endl;
-        }
-
-        std::cout << "checking if i am close to the goal " << std::endl;
-
-        for (size_t i = 0; i < ddp.get_xs().size(); i++) {
-          auto &x = ddp.get_xs().at(i);
-          if (model_robot->distance(x.head(_nx), goal) < 1e-1) {
-            std::cout << "one state is close to goal! " << std::endl;
-            close_to_goal = true;
-          }
-
-          if (std::fabs(x(_nx) - max_alpha) < 1e-1) {
-            std::cout << "alpha is close to final " << std::endl;
-            close_to_goal = true;
-          }
-        }
-
-        std::cout << "done" << std::endl;
-      }
-
-      if (is_last)
-        copy_steps = window_optimize_i;
-      else
-        copy_steps = options_trajopt_local.window_shift;
-
-      for (size_t i = 0; i < copy_steps; i++)
-        xs_opt.push_back(xs_i_sol.at(i + 1).head(_nx));
-
-      for (size_t i = 0; i < copy_steps; i++)
-        us_opt.push_back(us_i_sol.at(i).head(_nu));
-
-      if (solver == SOLVER::mpc) {
-        for (size_t i = 0; i < window_optimize_i; i++) {
-          xs_init_rewrite.at(1 + counter * options_trajopt_local.window_shift +
-                             i) = xs_i_sol.at(i + 1).head(_nx);
-
-          us_init_rewrite.at(counter * options_trajopt_local.window_shift + i) =
-              us_i_sol.at(i).head(_nu);
-        }
-      } else if (solver == SOLVER::mpc_adaptative || solver == SOLVER::mpcc ||
-                 solver == SOLVER::mpcc_linear) {
-
-        xs_warmstart.clear();
-        us_warmstart.clear();
-
-        for (size_t i = copy_steps; i < window_optimize_i; i++) {
-          xs_warmstart.push_back(xs_i_sol.at(i));
-          us_warmstart.push_back(us_i_sol.at(i));
-        }
-        xs_warmstart.push_back(xs_i_sol.back());
-      }
-
-      // DEBUGGING
-      debug_file_yaml << "  - xs0:" << std::endl;
-      for (auto &x : xs)
-        debug_file_yaml << "    - " << x.format(FMT) << std::endl;
-
-      debug_file_yaml << "    us0:" << std::endl;
-      for (auto &u : us)
-        debug_file_yaml << "    - " << u.format(FMT) << std::endl;
-
-      debug_file_yaml << "    xsOPT:" << std::endl;
-      for (auto &x : xs_i_sol)
-        debug_file_yaml << "    - " << x.format(FMT) << std::endl;
-
-      debug_file_yaml << "    usOPT:" << std::endl;
-      for (auto &u : us_i_sol)
-        debug_file_yaml << "    - " << u.format(FMT) << std::endl;
-
-      debug_file_yaml << "    start: " << xs.front().format(FMT) << std::endl;
-
-      if (solver == SOLVER::mpc || solver == SOLVER::mpc_adaptative) {
-        debug_file_yaml << "    goal: " << goal_mpc.format(FMT) << std::endl;
-      } else if (solver == SOLVER::mpcc || solver == SOLVER::mpcc_linear) {
-        double alpha_mpcc = ddp.get_xs().back()(_nx);
-        Vxd out(_nx);
-        Vxd Jout(_nx);
-        path->interpolate(alpha_mpcc, out, Jout);
-        debug_file_yaml << "    alpha: " << alpha_mpcc << std::endl;
-        debug_file_yaml << "    state_alpha: " << out.format(FMT) << std::endl;
-      }
-
-      DYNO_CHECK_EQ(us_i_sol.size() + 1, xs_i_sol.size(), AT);
-
-      // copy results
-
-      if (is_last) {
-        finished = true;
-        std::cout << "finished: " << "is_last=TRUE" << std::endl;
-      }
-
-      counter++;
-
-      if (counter > options_trajopt_local.max_mpc_iterations) {
-        finished = true;
-        std::cout << "finished: " << "max mpc iterations" << std::endl;
-      }
-    }
-    std::cout << "Total TIME: " << total_time << std::endl;
-    std::cout << "Total Iterations: " << total_iterations << std::endl;
-
-    xs_out = xs_opt;
-    us_out = us_opt;
-
-    debug_file_yaml << "xsOPT: " << std::endl;
-    for (auto &x : xs_out)
-      debug_file_yaml << "  - " << x.format(FMT) << std::endl;
-
-    debug_file_yaml << "usOPT: " << std::endl;
-    for (auto &u : us_out)
-      debug_file_yaml << "  - " << u.format(FMT) << std::endl;
-
-    // checking feasibility
-    Trajectory traj;
-    traj.states.resize(xs_out.size());
-    traj.actions.resize(us_out.size());
-    for (size_t i = 0; i < xs_out.size(); i++)
-      traj.states.at(i) = xs_out.at(i).head(model_robot->nx);
-    for (size_t i = 0; i < us_out.size(); i++)
-      traj.actions.at(i) = us_out.at(i).head(model_robot->nu);
-    traj.start = problem.start;
-    traj.goal = problem.goal;
-    traj.check(model_robot, true);
-    traj.update_feasibility(dynobench::Feasibility_thresholds(), true);
-    success = traj.feasible;
-
-  } else if (solver == SOLVER::traj_opt || __free_time_mode) {
+  if (solver == SOLVER::traj_opt || __free_time_mode) {
 
     if (solver == SOLVER::traj_opt_free_time_proxi) {
       add_extra_time_rate(us_init);
-    }
-
-    if (solver == SOLVER::traj_opt_free_time_proxi_linear) {
-      add_extra_time_rate(us_init);
-      add_extra_state_time_rate(xs_init, start);
     }
 
     std::vector<Vxd> regs;
@@ -1706,7 +1132,7 @@ void __trajectory_optimization(
 
     Generate_params gen_args{
         .free_time = __free_time_mode,
-        .free_time_linear = solver == SOLVER::traj_opt_free_time_proxi_linear,
+        .free_time_linear = false,
         .name = name,
         .N = N,
         .goal = goal,
@@ -1765,7 +1191,7 @@ void __trajectory_optimization(
     }
 
     std::cout << "CHECK traj with non uniform time " << std::endl;
-    traj.check(model_robot, true);
+    traj.check(model_robot, false);
     traj.update_feasibility(dynobench::Feasibility_thresholds(), true);
     std::cout << "CHECK traj with non uniform time -- DONE " << std::endl;
 
@@ -1898,7 +1324,7 @@ void __trajectory_optimization(
     std::cout << "Final CHECK" << std::endl;
     CSTR_(model_robot->name);
 
-    traj.check(model_robot, true);
+    traj.check(model_robot, false);
     std::cout << "Final CHECK -- DONE" << std::endl;
 
     dynobench::Feasibility_thresholds thresholds{.traj_tol = traj_tol,
@@ -1945,25 +1371,9 @@ void trajectory_optimization(const dynobench::Problem &problem,
   // std::string _base_path = "../../models/";
 
   std::shared_ptr<dynobench::Model_robot> model_robot;
-  // if (problem.robotTypes.size() == 1) {
-  if (problem.robotTypes.size() == 1 && problem.goal_times.size() == 0) {
-    // robotType.empty()) {
-    model_robot = dynobench::robot_factory(
-        (problem.models_base_path + problem.robotType + ".yaml").c_str(),
-        problem.p_lb, problem.p_ub);
-  } else {
-    model_robot = dynobench::joint_robot_factory(problem.robotTypes,
-                                                 problem.models_base_path,
-                                                 problem.p_lb, problem.p_ub);
-  }
-
-  if (problem.goal_times.size()) {
-    auto ptr_derived =
-        std::dynamic_pointer_cast<dynobench::Joint_robot>(model_robot);
-    CHECK(ptr_derived, "multiple goal times only work for joint robot");
-    ptr_derived->goal_times = problem.goal_times;
-    traj.multi_robot_index_goal = ptr_derived->goal_times;
-  }
+  model_robot = dynobench::robot_factory(
+      (problem.models_base_path + problem.robotType + ".yaml").c_str(),
+      problem.p_lb, problem.p_ub);
 
   load_env(*model_robot, problem);
 
@@ -1971,12 +1381,6 @@ void trajectory_optimization(const dynobench::Problem &problem,
   size_t _nu = model_robot->nu;
 
   Trajectory tmp_init_guess(init_guess), tmp_solution;
-
-  if (options_trajopt_local.welf_format) {
-    std::shared_ptr<dynobench::Model_quad3d> robot_derived =
-        std::dynamic_pointer_cast<dynobench::Model_quad3d>(model_robot);
-    tmp_init_guess = from_welf_to_quim(init_guess, robot_derived->u_nominal);
-  }
 
   for (auto &s : tmp_init_guess.states)
     model_robot->ensure(s);
@@ -2026,7 +1430,7 @@ void trajectory_optimization(const dynobench::Problem &problem,
 
     {
       std::cout << "check for input" << std::endl;
-      Trajectory(init_guess).check(model_robot, true);
+      Trajectory(init_guess).check(model_robot, false);
       std::cout << "check for input -- DONE" << std::endl;
     }
 
@@ -2046,341 +1450,13 @@ void trajectory_optimization(const dynobench::Problem &problem,
 
   // check the init guess trajectory
 
-  std::cout << "Report on the init guess " << std::endl;
-  WARN_WITH_INFO("should I copy the first state in the init guess? -- now yes");
+  // std::cout << "Report on the init guess " << std::endl;
+  // WARN_WITH_INFO("should I copy the first state in the init guess? -- now yes");
   tmp_init_guess.start = problem.start;
-  tmp_init_guess.check(model_robot, true);
-  std::cout << "Report on the init guess -- DONE " << std::endl;
+  // tmp_init_guess.check(model_robot, false);
+  // std::cout << "Report on the init guess -- DONE " << std::endl;
 
   switch (static_cast<SOLVER>(options_trajopt.solver_id)) {
-
-  case SOLVER::mpc_nobound_mpcc: {
-
-    size_t num_solve_mpc_no_bounds = 3;
-    size_t num_solve_mpcc_with_bounds = 3;
-
-    bool do_mpcc = true;
-    std::cout << "MPC" << std::endl;
-
-    for (size_t i = 0; i < num_solve_mpc_no_bounds; i++) {
-      std::cout << "iteration " << i << std::endl;
-
-      options_trajopt_local.solver_id = static_cast<int>(SOLVER::mpc);
-      options_trajopt_local.control_bounds = 0;
-      options_trajopt_local.debug_file_name =
-          "/tmp/dynoplan/debug_file_mpc_" + std::to_string(i) + ".yaml";
-
-      std::cout << "**\nopti params is " << std::endl;
-
-      options_trajopt_local.print(std::cout);
-
-      if (i > 0) {
-        tmp_init_guess = tmp_solution;
-      } else {
-      }
-
-      __trajectory_optimization(problem, model_robot, tmp_init_guess,
-                                options_trajopt_local, tmp_solution, opti_out);
-      time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-      CSTR_(time_ddp_total);
-
-      if (!opti_out.success) {
-        std::cout << "warning" << " " << "not success" << std::endl;
-        do_mpcc = false;
-        break;
-      }
-    }
-
-    std::cout << "MPCC" << std::endl;
-    if (do_mpcc) {
-      for (size_t i = 0; i < num_solve_mpcc_with_bounds; i++) {
-
-        std::cout << "iteration " << i << std::endl;
-        options_trajopt_local.solver_id = static_cast<int>(SOLVER::mpcc);
-        options_trajopt_local.control_bounds = 1;
-        options_trajopt_local.debug_file_name =
-            "/tmp/dynoplan/debug_file_mpcc_" + std::to_string(i) + ".yaml";
-
-        tmp_init_guess = tmp_solution;
-
-        __trajectory_optimization(problem, model_robot, tmp_init_guess,
-                                  options_trajopt_local, tmp_solution,
-                                  opti_out);
-
-        time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-        CSTR_(time_ddp_total);
-        if (!opti_out.success) {
-          std::cout << "warning" << " " << "not success" << std::endl;
-          break;
-        }
-      }
-    }
-    traj = tmp_solution;
-    DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-
-  } break;
-
-  case SOLVER::traj_opt_smooth_then_free_time: {
-
-    bool do_free_time = true;
-    options_trajopt_local.control_bounds = false;
-    options_trajopt_local.solver_id = static_cast<int>(SOLVER::traj_opt);
-    options_trajopt_local.control_bounds = 0;
-    options_trajopt_local.debug_file_name =
-        "/tmp/dynoplan/debug_file_trajopt.yaml";
-    std::cout << "**\nopti params is " << std::endl;
-    options_trajopt_local.print(std::cout);
-
-    __trajectory_optimization(problem, model_robot, tmp_init_guess,
-                              options_trajopt_local, tmp_solution, opti_out);
-
-    time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-    CSTR_(time_ddp_total);
-    if (!opti_out.success) {
-      std::cout << "warning" << " " << "not success" << std::endl;
-      do_free_time = false;
-    }
-
-    if (do_free_time) {
-
-      options_trajopt_local.control_bounds = true;
-
-      tmp_init_guess.states = tmp_solution.states;
-      tmp_init_guess.actions = tmp_solution.actions;
-
-      options_trajopt_local.solver_id =
-          static_cast<int>(SOLVER::traj_opt_free_time_proxi);
-      options_trajopt_local.control_bounds = 1;
-      options_trajopt_local.debug_file_name =
-          "/tmp/dynoplan/debug_file_trajopt_freetime.yaml";
-
-      __trajectory_optimization(problem, model_robot, tmp_solution,
-                                options_trajopt_local, traj, opti_out);
-      time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-      CSTR_(time_ddp_total);
-
-      NOT_IMPLEMENTED;
-      // missing fix step with ref dt!
-    }
-
-    DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-
-  } break;
-
-  case SOLVER::first_fixed_then_free_time: {
-
-    // TODO: test this!!
-    bool do_free_time = true;
-
-    options_trajopt_local.solver_id = static_cast<int>(SOLVER::traj_opt);
-    options_trajopt_local.debug_file_name =
-        "/tmp/dynoplan/debug_file_trajopt_0.yaml";
-
-    std::cout << "**\nopti params is " << std::endl;
-    options_trajopt_local.print(std::cout);
-
-    __trajectory_optimization(problem, model_robot, tmp_init_guess,
-                              options_trajopt_local, tmp_solution, opti_out);
-
-    time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-    CSTR_(time_ddp_total);
-    if (!opti_out.success) {
-      std::cout << "warning" << " " << "fail first step" << std::endl;
-      do_free_time = false;
-    }
-
-    if (do_free_time) {
-      options_trajopt_local.solver_id =
-          static_cast<int>(SOLVER::traj_opt_free_time);
-
-      double time_first = std::stod(opti_out.data.at("ddp_time"));
-      time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-      trajectory_optimization(problem, tmp_solution, options_trajopt, traj,
-                              opti_out);
-      time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-
-      DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-    }
-  } break;
-
-  case SOLVER::time_search_traj_opt: {
-
-    CHECK(tmp_init_guess.actions.size(), AT);
-    CHECK(tmp_init_guess.states.size(), AT);
-
-    auto check_with_rate = [&](double rate, Result_opti &opti_out_local,
-                               Trajectory &traj_out) {
-      double dt = model_robot->ref_dt;
-      CSTR_(dt);
-
-      std::vector<Vxd> us_init = tmp_init_guess.actions;
-      std::vector<Vxd> xs_init = tmp_init_guess.states;
-
-      Trajectory traj_rate_i;
-      traj_rate_i.goal = tmp_init_guess.goal;
-      traj_rate_i.start = tmp_init_guess.start;
-
-      Vxd times = Vxd::LinSpaced(us_init.size() + 1, 0, us_init.size() * dt);
-
-      // resample a trajectory
-      size_t original_n = us_init.size();
-      Vxd times_2 = rate * times;
-
-      // create an interpolator
-      // I need a state to interpolate :)
-      // CONTINUE HERE!!
-      dynobench::Interpolator interp_x(times_2, xs_init, model_robot->state);
-      dynobench::Interpolator interp_u(times_2.head(us_init.size()), us_init);
-
-      int new_n = std::ceil(rate * original_n);
-
-      Vxd new_times = Vxd::LinSpaced(new_n + 1, 0, new_n * dt);
-      std::vector<Vxd> new_xs(new_n + 1);
-      std::vector<Vxd> new_us(new_n);
-
-      Vxd x(_nx);
-      Vxd Jx(_nx);
-      Vxd u(_nu);
-      Vxd Ju(_nu);
-
-      for (size_t i = 0; i < static_cast<size_t>(new_times.size()); i++) {
-        interp_x.interpolate(new_times(i), x, Jx);
-        new_xs.at(i) = x;
-
-        if (i < static_cast<size_t>(new_times.size()) - 1) {
-          interp_u.interpolate(new_times(i), u, Ju);
-          new_us.at(i) = u;
-        }
-      }
-
-      traj_rate_i.states = new_xs;
-      traj_rate_i.actions = new_us;
-
-      options_trajopt_local.solver_id = static_cast<int>(SOLVER::traj_opt);
-
-      for (auto &s : traj_rate_i.states)
-        model_robot->ensure(s);
-
-      __trajectory_optimization(problem, model_robot, traj_rate_i,
-                                options_trajopt_local, traj_out,
-                                opti_out_local);
-
-      CHECK((opti_out_local.data.find("ddp_time") != opti_out_local.data.end()),
-            AT);
-      time_ddp_total += std::stod(opti_out_local.data.at("ddp_time"));
-      CSTR_(time_ddp_total);
-    };
-
-    Vxd rates = Vxd::LinSpaced(options_trajopt_local.tsearch_num_check,
-                               options_trajopt_local.tsearch_min_rate,
-                               options_trajopt_local.tsearch_max_rate);
-
-    Result_opti opti_out_local;
-    opti_out_local.name = opti_out.name;
-    size_t counter = 0;
-
-    Result_opti best;
-    Trajectory best_traj;
-    best.name = opti_out.name;
-    best.cost = std::numeric_limits<double>::max();
-
-    std::cout << "rates are:" << std::endl;
-    print_vec(rates.data(), rates.size());
-
-    double *it = nullptr;
-
-    if (!options_trajopt_local.linear_search) {
-      it = std::lower_bound(
-          rates.data(), rates.data() + rates.size(), true,
-          [&](auto rate, auto val) {
-            (void)val;
-            std::cout << "checking rate " << rate << std::endl;
-            options_trajopt_local.debug_file_name =
-                "/tmp/dynoplan/debug_file_trajopt_" +
-                std::to_string(counter++) + ".yaml";
-            Trajectory traj_out;
-            check_with_rate(rate, opti_out_local, traj_out);
-            if (opti_out_local.feasible) {
-              std::cout << "if feasible -- COST" << opti_out_local.cost
-                        << std::endl;
-              DYNO_CHECK_GEQ(best.cost, opti_out_local.cost, AT);
-              best_traj = traj_out;
-              best = opti_out_local;
-            }
-            std::cout << "feasibility of rate: " << rate << " is "
-                      << opti_out_local.feasible << std::endl;
-            return !opti_out_local.feasible;
-          });
-    } else {
-      it = std::find_if(
-          rates.data(), rates.data() + rates.size(), [&](const auto &rate) {
-            std::cout << "checking rate " << rate << std::endl;
-            options_trajopt_local.debug_file_name =
-                "/tmp/dynoplan/debug_file_trajopt_" +
-                std::to_string(counter++) + ".yaml";
-            Trajectory traj_out;
-            check_with_rate(rate, opti_out_local, traj_out);
-            if (opti_out_local.feasible) {
-              std::cout << "if feasible -- COST: " << opti_out_local.cost
-                        << std::endl;
-              DYNO_CHECK_GEQ(best.cost, opti_out_local.cost, AT);
-              best_traj = traj_out;
-              best = opti_out_local;
-            }
-            std::cout << "feasibility of rate: " << rate << " is "
-                      << opti_out_local.feasible << std::endl;
-            return opti_out_local.feasible;
-          });
-    }
-
-    if (it == rates.data() + rates.size()) {
-      std::cout << "all rates are infeasible " << std::endl;
-      opti_out.feasible = false;
-    } else {
-      size_t index = std::distance(rates.data(), it);
-      std::cout << "first valid is index " << index << " rate " << rates(index)
-                << std::endl;
-      opti_out = best;
-      traj = best_traj;
-    }
-    DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-  } break;
-
-  case SOLVER::traj_opt_free_time_linear: {
-
-    bool do_final_repair_step = true;
-    options_trajopt_local.solver_id =
-        static_cast<int>(SOLVER::traj_opt_free_time_proxi_linear);
-    options_trajopt_local.debug_file_name =
-        "/tmp/dynoplan/debug_file_trajopt_freetime_proxi.yaml";
-    std::cout << "**\nopti params is " << std::endl;
-    options_trajopt_local.print(std::cout);
-
-    __trajectory_optimization(problem, model_robot, tmp_init_guess,
-                              options_trajopt_local, tmp_solution, opti_out);
-
-    time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-    CSTR_(time_ddp_total);
-
-    if (!opti_out.success) {
-      std::cout << "warning:" << "not success" << std::endl;
-      do_final_repair_step = false;
-    }
-
-    if (do_final_repair_step) {
-      std::cout << "time proxi was feasible, doing final step " << std::endl;
-      options_trajopt_local.solver_id = static_cast<int>(SOLVER::traj_opt);
-      options_trajopt_local.debug_file_name =
-          "/tmp/dynoplan/debug_file_trajopt_after_freetime_proxi.yaml";
-
-      __trajectory_optimization(problem, model_robot, tmp_solution,
-                                options_trajopt_local, traj, opti_out);
-      time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-      CSTR_(time_ddp_total);
-    }
-
-    DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-  } break;
 
   case SOLVER::traj_opt_free_time: {
 
@@ -2409,62 +1485,6 @@ void trajectory_optimization(const dynobench::Problem &problem,
       options_trajopt_local.debug_file_name =
           "/tmp/dynoplan/debug_file_trajopt_after_freetime_proxi.yaml";
 
-#if 0
-      if (problem.goal_times.size() > 0) {
-
-        std::cout << "warning: I have to adjust the goal times, if they were "
-                     "provided in the multirobot sytems"
-                  << std::endl;
-
-        // Example: at the beginning they were
-        // 16 , 47
-        // and num_actions was 46
-
-        // now num actions should be 60.
-        // so 47 should be: 61
-
-        //
-
-        int max_goal_time = 0;
-
-        for (auto &t : ptr_derived->goal_times) {
-          if (t > max_goal_time) {
-            max_goal_time = t;
-          }
-        }
-
-        size_t num_new_actions = tmp_solution.actions.size();
-
-        for (auto &g : ptr_derived->goal_times) {
-          g = std::lround(double(g) / max_goal_time * (num_new_actions + 1));
-        }
-
-        // some checks
-        {
-          int max_goal_time = 0;
-
-          for (auto &t : ptr_derived->goal_times) {
-            if (t > max_goal_time) {
-              max_goal_time = t;
-            }
-          }
-          CHECK_EQ(max_goal_time, num_new_actions + 1, AT);
-        }
-      }
-#endif
-
-      if (problem.goal_times.size()) {
-        std::cout << "new goal times are " << std::endl;
-
-        auto ptr_derived =
-            std::dynamic_pointer_cast<dynobench::Joint_robot>(model_robot);
-        CHECK(ptr_derived, "multiple goal times only work for joint robot");
-
-        for (auto &g : ptr_derived->goal_times) {
-          std::cout << g << " ";
-        }
-        std::cout << std::endl;
-      }
 
       __trajectory_optimization(problem, model_robot, tmp_solution,
                                 options_trajopt_local, traj, opti_out);
@@ -2484,49 +1504,6 @@ void trajectory_optimization(const dynobench::Problem &problem,
         DYNO_CHECK_EQ(max_index, traj.states.size(), AT);
       }
 
-      time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-      CSTR_(time_ddp_total);
-    }
-    DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
-  } break;
-
-  case SOLVER::traj_opt_no_bound_bound: {
-
-    bool do_opti_with_real_bounds = true;
-    options_trajopt_local.control_bounds = true;
-    options_trajopt_local.u_bound_scale = 1.5;
-    options_trajopt_local.solver_id = static_cast<int>(SOLVER::traj_opt);
-    options_trajopt_local.debug_file_name =
-        "/tmp/dynoplan/debug_file_trajopt_bound_scale.yaml";
-    std::cout << "**\nopti params is " << std::endl;
-    options_trajopt_local.print(std::cout);
-
-    __trajectory_optimization(problem, model_robot, tmp_init_guess,
-                              options_trajopt_local, tmp_solution, opti_out);
-    time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
-    CSTR_(time_ddp_total);
-
-    // solve without bounds  --
-
-    if (!opti_out.success) {
-      std::cout << "warning" << " " << "not success" << std::endl;
-      do_opti_with_real_bounds = false;
-    }
-
-    if (do_opti_with_real_bounds) {
-      std::cout << "bound scale was succesful, optimize with real bounds"
-                << std::endl;
-
-      options_trajopt_local.control_bounds = true;
-      options_trajopt_local.u_bound_scale = 1.;
-      options_trajopt_local.solver_id = static_cast<int>(SOLVER::traj_opt);
-      options_trajopt_local.debug_file_name =
-          "/tmp/dynoplan/debug_file_trajopt_bound.yaml";
-      std::cout << "**\nopti params is " << std::endl;
-      options_trajopt_local.print(std::cout);
-
-      __trajectory_optimization(problem, model_robot, tmp_solution,
-                                options_trajopt_local, traj, opti_out);
       time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
       CSTR_(time_ddp_total);
     }

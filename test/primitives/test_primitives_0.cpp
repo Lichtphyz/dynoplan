@@ -73,7 +73,7 @@ BOOST_AUTO_TEST_CASE(t_improve) {
 
   Options_trajopt options_trajopt;
   options_trajopt.solver_id =
-      static_cast<int>(SOLVER::traj_opt_free_time_linear);
+      static_cast<int>(SOLVER::traj_opt_free_time);
 
   Options_primitives options_primitives;
 
