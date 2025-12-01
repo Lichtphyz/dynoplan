@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
         fs::path init_p(init_file);
         base = (init_p.parent_path() / (init_p.stem().string() + "_viz")).string();
       }
-      bool view_ghost = (view_init && feasible);
+      bool view_ghost = view_init;
       if (!do_optimize && !view_init && do_visualize) {
         // Visualize a feasible solution and dont show the initial guess
         sol_to_show.read_from_yaml(results_path.c_str());

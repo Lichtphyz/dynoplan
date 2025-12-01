@@ -1188,12 +1188,13 @@ void __trajectory_optimization(
       for (size_t i = 1; i < static_cast<size_t>(traj.times.size()); i++)
         traj.times(i) = traj.times(i - 1) +
                         _us_out.at(i - 1).tail<1>()(0) * model_robot->ref_dt;
+      std::cout << "CHECK traj with non uniform time " << std::endl;
+      traj.check(model_robot, false);
+      traj.update_feasibility(dynobench::Feasibility_thresholds(), true);
+      std::cout << "CHECK traj with non uniform time -- DONE " << std::endl;
+
     }
 
-    std::cout << "CHECK traj with non uniform time " << std::endl;
-    traj.check(model_robot, false);
-    traj.update_feasibility(dynobench::Feasibility_thresholds(), true);
-    std::cout << "CHECK traj with non uniform time -- DONE " << std::endl;
 
     success = traj.feasible;
 
@@ -1452,7 +1453,7 @@ void trajectory_optimization(const dynobench::Problem &problem,
 
   // std::cout << "Report on the init guess " << std::endl;
   // WARN_WITH_INFO("should I copy the first state in the init guess? -- now yes");
-  tmp_init_guess.start = problem.start;
+  // tmp_init_guess.start = problem.start;
   // tmp_init_guess.check(model_robot, false);
   // std::cout << "Report on the init guess -- DONE " << std::endl;
 
@@ -1545,16 +1546,16 @@ void Result_opti::write_yaml(std::ostream &out) {
     }
   }
   // TODO: @QUIM @AKMARAL Clarify this!!!
-  out << "result:" << std::endl;
-  // out << "xs_out: " << std::endl;
-  out << "  - states:" << std::endl;
-  for (auto &x : xs_out)
-    out << "      - " << x.format(FMT) << std::endl;
+  // out << "result:" << std::endl;
+  // // out << "xs_out: " << std::endl;
+  // out << "  - states:" << std::endl;
+  // for (auto &x : xs_out)
+  //   out << "      - " << x.format(FMT) << std::endl;
 
-  // out << "us_out: " << std::endl;
-  out << "    actions:" << std::endl;
-  for (auto &u : us_out)
-    out << "      - " << u.format(FMT) << std::endl;
+  // // out << "us_out: " << std::endl;
+  // out << "    actions:" << std::endl;
+  // for (auto &u : us_out)
+  //   out << "      - " << u.format(FMT) << std::endl;
 }
 
 void Result_opti::write_yaml_db(std::ostream &out) {
