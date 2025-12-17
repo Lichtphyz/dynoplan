@@ -19,7 +19,7 @@ struct Options_trajopt {
   bool use_finite_diff = false;
   bool use_warmstart = true;
   bool rollout_warmstart = false;
-  bool repair_init_guess = true;
+  bool repair_init_guess = false;
   bool control_bounds = true;
   bool states_reg = false;
   int solver_id = 1;
@@ -51,7 +51,12 @@ struct Options_trajopt {
   bool interp = false;
   bool welf_format = false;
   bool linear_search = false;
+  bool track_reference = false;
+  int penalty_iterations = 1;
   std::string name = "";
+
+  bool use_cable_complementarity = true;
+  double cable_complementarity_weight = 10.0;
 
   void add_options(po::options_description &desc);
 

@@ -660,8 +660,9 @@ void check_problem_with_finite_diff(
   options.disturbance = 1e-5;
   std::cout << "gen problem " << STR_(AT) << std::endl;
   size_t nx, nu;
+  dynobench::Trajectory ref_traj;
   ptr<crocoddyl::ShootingProblem> problem_fdiff =
-      generate_problem(gen_args, options);
+      generate_problem(gen_args, options, ref_traj);
   check_problem(problem_croco, problem_fdiff, xs, us);
 };
 
@@ -910,8 +911,11 @@ void solve_for_fixed_penalty(
     const dynobench::Problem &problem, const std::string folder_tmptraj,
     bool store_iterations, boost::shared_ptr<CallVerboseDyno> callback_dyno) {
   // geneate problem
+  dynobench::Trajectory traj_ref;
+  traj_ref.states = xs_init;
+  traj_ref.actions = us_init;
   ptr<crocoddyl::ShootingProblem> problem_croco =
-      generate_problem(gen_args, options_trajopt_local);
+      generate_problem(gen_args, options_trajopt_local, traj_ref);
 
   size_t nu = model_robot->nu;
   if (gen_args.free_time) {
@@ -1141,8 +1145,8 @@ void __trajectory_optimization(
         .states = {xs_init.begin(), xs_init.end() - 1},
         .states_weights = regs,
         .actions = us_init,
-        .collisions = options_trajopt_local.collision_weight > 1e-3
-
+        .collisions = options_trajopt_local.collision_weight > 1e-3,
+        .track_reference = options_trajopt_local.track_reference
     };
 
     std::cout << "gen problem " << STR_(AT) << std::endl;
@@ -1151,7 +1155,7 @@ void __trajectory_optimization(
 
     xs_init_p = xs_init;
     us_init_p = us_init;
-    const size_t penalty_iterations = 1;
+    const size_t penalty_iterations = options_trajopt_local.penalty_iterations;
     for (size_t i = 0; i < penalty_iterations; i++) {
       std::cout << "PENALTY iteration " << i << std::endl;
       gen_args.penalty = std::pow(10., double(i) / 2.);
@@ -1160,7 +1164,7 @@ void __trajectory_optimization(
         options_trajopt_local.noise_level = 0;
       }
 
-      solve_for_fixed_penalty(gen_args, options_trajopt_local, xs_init, us_init,
+      solve_for_fixed_penalty(gen_args, options_trajopt_local, xs_init_p, us_init_p,
                               options_trajopt_local.check_with_finite_diff, N,
                               name, ddp_iterations, ddp_time, _xs_out, _us_out,
                               model_robot, problem, folder_tmptraj,
@@ -1194,7 +1198,10 @@ void __trajectory_optimization(
       std::cout << "CHECK traj with non uniform time -- DONE " << std::endl;
 
     }
+    std::cout << "checking traj..." << std::endl;
 
+    traj.check(model_robot, false);
+    traj.update_feasibility(dynobench::Feasibility_thresholds(), true);
 
     success = traj.feasible;
 
@@ -1475,8 +1482,8 @@ void trajectory_optimization(const dynobench::Problem &problem,
     CSTR_(time_ddp_total);
 
     if (!opti_out.success) {
-      std::cout << "warning" << " " << "infeasible" << std::endl;
-      do_final_repair_step = false;
+      std::cout << "warning" << " " << "infeasible, will do final repair step either way." << std::endl;
+      do_final_repair_step = true;
     }
 
     if (do_final_repair_step) {

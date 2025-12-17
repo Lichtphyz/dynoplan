@@ -40,15 +40,15 @@ void Generate_params::print(std::ostream &out) const {
 
 ptr<crocoddyl::ShootingProblem>
 generate_problem(const Generate_params &gen_args,
-                 const Options_trajopt &options_trajopt) {
+                 const Options_trajopt &options_trajopt, dynobench::Trajectory &ref_traj) {
 
   std::cout << "**\nGENERATING PROBLEM" << std::endl;
-  // gen_args.print(std::cout);
-  // std::cout << "**\n" << std::endl;
+  gen_args.print(std::cout);
+  std::cout << "**\n" << std::endl;
 
-  // std::cout << "**\nOpti Params\n**\n" << std::endl;
-  // options_trajopt.print(std::cout);
-  // std::cout << "**\n" << std::endl;
+  std::cout << "**\nOpti Params\n**\n" << std::endl;
+  options_trajopt.print(std::cout);
+  std::cout << "**\n" << std::endl;
 
   std::vector<ptr<Cost>> feats_terminal;
   ptr<crocoddyl::ActionModelAbstract> am_terminal;
@@ -108,6 +108,24 @@ generate_problem(const Generate_params &gen_args,
     std::vector<ptr<Cost>> feats_run;
 
     feats_run.push_back(control_feature);
+    Vxd control_ref = Vxd::Zero(nu);
+    if (gen_args.track_reference) {
+      if (t < ref_traj.actions.size()) {
+        Vxd control_weights = 0 * Vxd::Ones(nu);
+        control_ref = ref_traj.actions.at(t);
+        ptr<Cost> ctrl_track_feature =
+        mk<Control_cost>(nx, nu, nu, control_weights, control_ref);
+        feats_run.push_back(ctrl_track_feature);
+      }
+
+      // std::cout << "Adding tracking cost to the reference trajectory!" << std::endl;
+      Vxd state_weights = Vxd::Constant(nx, 100.0);
+      Vxd state_ref     = Vxd::Zero(nx);
+      state_ref = ref_traj.states.at(t);
+      ptr<Cost> state_track_feature = mk<State_cost>(
+        nx, nu, nx, state_weights, state_ref);
+        feats_run.push_back(state_track_feature);
+    }
 
     if (options_trajopt.soft_control_bounds) {
       std::cout << "Experimental" << std::endl;
@@ -229,17 +247,46 @@ generate_problem(const Generate_params &gen_args,
               nx, nu, nx, state_weights, state_ref);
               feats_run.push_back(state_feature);
           } 
+        } else if (gen_args.name == "mujocoquadspayload_obs1") {
+            Vxd state_weights = Vxd::Zero(nx);
+            Vxd state_ref     = Vxd::Zero(nx);
+
+          const int t_wp = 70;
+          if (std::abs(int(t) - t_wp) <= 5) {
+            V3d payload_pos(0.0, 0.0, 0.75);
+            // V3d quad1_pos(0.0 ,  0.0, 0.85); 
+
+            state_weights.segment<3>(0)  = 500.0 * V3d::Ones();
+            // state_weights.segment<3>(7)  = 1500.0 * V3d::Ones();
+            state_ref.segment<3>(0)      = payload_pos;
+            // state_ref.segment<3>(7)      = quad1_pos;
+            std::cout << "adding waypoint constraints at t: " << t
+            << "\nstate_weights: " << state_weights.transpose()
+            << "\nstate_ref: " << state_ref.transpose() << std::endl;
+            ptr<Cost> state_feature = mk<State_cost>(
+              nx, nu, nx, state_weights, state_ref);
+              feats_run.push_back(state_feature);
+          } 
         } else {
           ptr<Cost> state_feature = mk<State_cost>(
               nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
           feats_run.push_back(state_feature);
+          ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
+              gen_args.model_robot, gen_args.model_robot->k_acc);
+          feats_run.push_back(acc_cost);
         }
+      } else {
+        if (t < 5) std::cout << "adding regularization on the acceleration and state! " << std::endl;
+        auto ptr_derived = std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(gen_args.model_robot);
 
+        ptr<Cost> state_feature = mk<State_cost>(nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
+        feats_run.push_back(state_feature);
 
+        
         ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
             gen_args.model_robot, gen_args.model_robot->k_acc);
         feats_run.push_back(acc_cost);
-      } 
+      }
     }
 
     if (gen_args.states_weights.size() && gen_args.states.size()) {
@@ -320,7 +367,6 @@ generate_problem(const Generate_params &gen_args,
         gen_args.penalty * options_trajopt.weight_goal * goal_weight,
         // Vxd::Ones(gen_args.model_robot->nx),
         gen_args.goal);
-    // QUIM TODO: continuehere -- remove weights on quaternions!
 
     feats_terminal.push_back(state_feature);
   }

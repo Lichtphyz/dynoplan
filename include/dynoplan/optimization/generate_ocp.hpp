@@ -7,6 +7,7 @@
 #include <crocoddyl/core/fwd.hpp>
 #include <memory>
 #include <string>
+#include "dynobench/motions.hpp"
 
 namespace dynoplan {
 
@@ -34,12 +35,13 @@ struct Generate_params {
   bool goal_cost = true;
   bool collisions = true;
   double penalty = 1; // penalty for the constraints
+  bool track_reference = false;
   void print(std::ostream &out) const;
 };
 
 ptr<crocoddyl::ShootingProblem>
 generate_problem(const Generate_params &gen_args,
-                 const Options_trajopt &options_trajopt);
+                 const Options_trajopt &options_trajopt, dynobench::Trajectory &ref_traj);
 
 std::vector<ReportCost> report_problem(ptr<crocoddyl::ShootingProblem> problem,
                                        const std::vector<Eigen::VectorXd> &xs,

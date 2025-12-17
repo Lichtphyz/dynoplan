@@ -41,6 +41,9 @@ void Options_trajopt::add_options(po::options_description &desc) {
   set_from_boostop(desc, VAR_WITH_NAME(tsearch_num_check));
   set_from_boostop(desc, VAR_WITH_NAME(welf_format));
   set_from_boostop(desc, VAR_WITH_NAME(linear_search));
+  set_from_boostop(desc, VAR_WITH_NAME(track_reference));
+  set_from_boostop(desc, VAR_WITH_NAME(penalty_iterations));
+
 }
 
 void Options_trajopt::read_from_yaml(const char *file) {
@@ -86,6 +89,8 @@ void Options_trajopt::__read_from_node(const YAML::Node &node) {
   set_from_yaml(node, VAR_WITH_NAME(tsearch_min_rate));
   set_from_yaml(node, VAR_WITH_NAME(tsearch_num_check));
   set_from_yaml(node, VAR_WITH_NAME(linear_search));
+  set_from_yaml(node, VAR_WITH_NAME(track_reference));
+  set_from_yaml(node, VAR_WITH_NAME(penalty_iterations));
 }
 
 void Options_trajopt::read_from_yaml(YAML::Node &node) {
@@ -140,6 +145,8 @@ void Options_trajopt::print(std::ostream &out, const std::string &be,
   out << be << STR(tsearch_min_rate, af) << std::endl;
   out << be << STR(tsearch_num_check, af) << std::endl;
   out << be << STR(linear_search, af) << std::endl;
+  out << be << STR(track_reference, af) << std::endl;
+  out << be << STR(penalty_iterations, af) << std::endl;
 }
 
 void PrintVariableMap(const boost::program_options::variables_map &vm,
