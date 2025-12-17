@@ -16,4 +16,4 @@ void execute_simMujoco(std::string &env_file,
                        const std::string &dynobench_base,
                        const std::string &video_path,
                        const std::string &camera_view = "auto",
-                       int num_repeats = 2, bool view_ghost = false, bool feasible = false);
+                       int num_repeats = 1, bool view_ghost = true, bool feasible = false);

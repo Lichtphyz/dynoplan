@@ -53,7 +53,7 @@ static void apply_camera_preset(mjvCamera& cam,
         cam.distance  = base_dist;
     } else if (camera_view == "diag") {
         cam.azimuth   = 202.5;     // 
-        cam.elevation = -15;
+        cam.elevation = -45;
         cam.distance  = base_dist;
     } else { // default / unknown
         cam.azimuth   = 45;
@@ -312,7 +312,7 @@ void execute_simMujoco(std::string &env_file,
 
         FILE* ffmpeg = popen(cmd.c_str(), "w");
         if (!ffmpeg) throw std::runtime_error("Failed to open FFmpeg pipe");
-        int repeats = 3;
+        int repeats = num_repeats;
         for (int r = 0; r < repeats; ++r) {
             Eigen::VectorXd x_next(live->nx), x_live = problem.start;
             if (view_ghost) {
