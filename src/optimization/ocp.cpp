@@ -952,7 +952,7 @@ void solve_for_fixed_penalty(
   std::string random_id = gen_random(6);
   {
     std::string filename = folder_tmptraj + "init_guess_" + random_id + ".yaml";
-    write_states_controls(xs, us, model_robot, problem, filename.c_str());
+    // write_states_controls(xs, us, model_robot, problem, filename.c_str());
   }
 
   // solve
@@ -1322,10 +1322,10 @@ void __trajectory_optimization(
 
   if (opti_out.success) {
     double traj_tol = 1e-2;
-    double goal_tol = 1e-1;
-    double col_tol = 1e-2;
+    double goal_tol = 1e-2;
+    double col_tol = 1e-4;
     double x_bound_tol = 1e-2;
-    double u_bound_tol = 1e-2;
+    double u_bound_tol = 1e-3;
 
     traj.to_yaml_format(std::cout);
 
