@@ -110,16 +110,17 @@ generate_problem(const Generate_params &gen_args,
     feats_run.push_back(control_feature);
     Vxd control_ref = Vxd::Zero(nu);
     if (gen_args.track_reference) {
-      if (t < ref_traj.actions.size()) {
-        Vxd control_weights = 0 * Vxd::Ones(nu);
-        control_ref = ref_traj.actions.at(t);
-        ptr<Cost> ctrl_track_feature =
-        mk<Control_cost>(nx, nu, nu, control_weights, control_ref);
-        feats_run.push_back(ctrl_track_feature);
-      }
+      // if (t < ref_traj.actions.size()) {
+      //   Vxd control_weights = 0 * Vxd::Ones(nu);
+      //   control_ref = ref_traj.actions.at(t);
+      //   ptr<Cost> ctrl_track_feature =
+      //   mk<Control_cost>(nx, nu, nu, control_weights, control_ref);
+      //   feats_run.push_back(ctrl_track_feature);
+      // }
 
       // std::cout << "Adding tracking cost to the reference trajectory!" << std::endl;
-      Vxd state_weights = Vxd::Constant(nx, 100.0);
+      Vxd state_weights = Vxd::Constant(nx, 0.0);
+      state_weights.segment(0, 3).setConstant(200.0); // only payload pos
       Vxd state_ref     = Vxd::Zero(nx);
       state_ref = ref_traj.states.at(t);
       ptr<Cost> state_track_feature = mk<State_cost>(
@@ -276,16 +277,16 @@ generate_problem(const Generate_params &gen_args,
           feats_run.push_back(acc_cost);
         }
       } else {
-        if (t < 5) std::cout << "adding regularization on the acceleration and state! " << std::endl;
-        auto ptr_derived = std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(gen_args.model_robot);
+        // if (t < 5) std::cout << "adding regularization on the acceleration and state! " << std::endl;
+        // auto ptr_derived = std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(gen_args.model_robot);
 
-        ptr<Cost> state_feature = mk<State_cost>(nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
-        feats_run.push_back(state_feature);
+        // ptr<Cost> state_feature = mk<State_cost>(nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
+        // feats_run.push_back(state_feature);
 
         
-        ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
-            gen_args.model_robot, gen_args.model_robot->k_acc);
-        feats_run.push_back(acc_cost);
+        // ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
+        //     gen_args.model_robot, gen_args.model_robot->k_acc);
+        // feats_run.push_back(acc_cost);
       }
     }
 
