@@ -8,18 +8,19 @@ namespace dynoplan {
 
 struct Options_primitives {
 
-  double time_limit = 1000;    // in seconds
+  double time_limit = 43200;    // in seconds
   int max_num_primitives = -1; // use -1 to say MAX
   size_t max_attempts = 1e8;
   std::string dynamics = "unicycle1_v0";
   bool adapt_infeas_primitives = false;
-  size_t ref_time_steps = 50;
+  size_t ref_time_steps = 200;
   size_t min_length_cut = 5;
   size_t max_length_cut = 20;
   size_t max_splits = 10;
   size_t num_threads = 1;
   bool use_random_displacemenet = false;
   std::string models_base_path = "";
+
 
   void print(std::ostream &out, const std::string &be = "",
              const std::string &af = ": ") {
