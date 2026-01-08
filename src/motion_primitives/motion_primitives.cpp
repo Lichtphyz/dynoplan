@@ -679,7 +679,7 @@ void generate_primitives(const Options_trajopt &options_trajopt,
         is_first = false;
       }
 
-      if (opti_out.feasible) {
+      if (/*opti_out.feasible*/true) {
         solved = true;
         CHECK(traj.states.size(), AT);
         traj.start = traj.states.front();

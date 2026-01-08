@@ -186,7 +186,7 @@ int main(int argc, const char *argv[]) {
                               options_primitives);
 
     trajectories_out.save_file_boost(out_file.c_str());
-    trajectories_out.save_file_yaml((out_file + ".yaml").c_str(), 1000);
+    trajectories_out.save_file_yaml((out_file + ".yaml").c_str(), options_primitives.max_num_primitives);
 
     trajectories_out.compute_stats("/tmp/tmp_stats.yaml");
   }
@@ -230,7 +230,7 @@ int main(int argc, const char *argv[]) {
     }
 
     trajectories_out.save_file_boost(out_file.c_str());
-    trajectories_out.save_file_yaml((out_file + ".yaml").c_str(), 1000);
+    trajectories_out.save_file_yaml((out_file + ".yaml").c_str(), options_primitives.max_num_primitives);
     trajectories_out.compute_stats("/tmp/tmp_stats.yaml");
   }
 
@@ -291,7 +291,7 @@ int main(int argc, const char *argv[]) {
 
     CSTR_(trajectories_out.data.size());
     trajectories_out.save_file_boost(out_file.c_str());
-    trajectories_out.save_file_yaml((out_file + ".yaml").c_str(), 1000);
+    trajectories_out.save_file_yaml((out_file + ".yaml").c_str(), options_primitives.max_num_primitives);
 
     trajectories_out.compute_stats("/tmp/tmp_stats.yaml");
   }
