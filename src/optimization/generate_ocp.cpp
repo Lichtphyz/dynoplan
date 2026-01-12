@@ -362,6 +362,8 @@ generate_problem(const Generate_params &gen_args,
     }
 
     CSTR_V(goal_weight);
+    // ptr<Cost> state_goal_feature = mk<State_cost>(
+    //   nx, nu, nx, options_trajopt.weight_goal * goal_weight, gen_args.goal);
 
     ptr<Cost> state_feature = mk<State_cost_model>(
         gen_args.model_robot, nx, nu,

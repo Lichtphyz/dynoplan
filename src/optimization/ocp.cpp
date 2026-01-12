@@ -925,6 +925,7 @@ void solve_for_fixed_penalty(
   // warmstart
   std::vector<Vxd> xs, us;
   if (options_trajopt_local.use_warmstart) {
+    std::cout << "using warmstart" << AT << std::endl;
     xs = xs_init;
     us = us_init;
   } else {
@@ -984,13 +985,13 @@ void solve_for_fixed_penalty(
   us_out = ddp.get_us();
 
   // report after
-  std::string filename = folder_tmptraj + "opt_" + random_id + ".yaml";
+  // std::string filename = folder_tmptraj + "opt_" + random_id + ".yaml";
 
   for (auto &x : xs_out) {
     model_robot->ensure(x);
   }
 
-  write_states_controls(xs_out, us_out, model_robot, problem, filename.c_str());
+  // write_states_controls(xs_out, us_out, model_robot, problem, filename.c_str());
   // report_problem(problem_croco, xs_out, us_out, "/tmp/dynoplan/report-1.yaml");
 };
 
@@ -1068,8 +1069,8 @@ void __trajectory_optimization(
     xs_init.front() = start;
   }
 
-  write_states_controls(xs_init, us_init, model_robot, problem,
-                        (folder_tmptraj + "init_guess.yaml").c_str());
+  // write_states_controls(xs_init, us_init, model_robot, problem,
+  //                       (folder_tmptraj + "init_guess.yaml").c_str());
 
   size_t num_smooth_iterations =
       dt > .05 ? 3 : 5; // TODO: put this as an option in command line
@@ -1097,27 +1098,27 @@ void __trajectory_optimization(
     model_robot->ensure(x);
   }
 
-  write_states_controls(xs_init, us_init, model_robot, problem,
-                        (folder_tmptraj + "init_guess_smooth.yaml").c_str());
+  // write_states_controls(xs_init, us_init, model_robot, problem,
+  //                       (folder_tmptraj + "init_guess_smooth.yaml").c_str());
 
   bool success = false;
   std::vector<Vxd> xs_out, us_out;
 
-  create_dir_if_necessary(options_trajopt_local.debug_file_name.c_str());
-  std::ofstream debug_file_yaml(options_trajopt_local.debug_file_name);
-  {
-    debug_file_yaml << "robotType: " << problem.robotType << std::endl;
-    debug_file_yaml << "N: " << N << std::endl;
-    debug_file_yaml << "start: " << start.format(FMT) << std::endl;
-    debug_file_yaml << "goal: " << goal.format(FMT) << std::endl;
-    debug_file_yaml << "xs0: " << std::endl;
-    for (auto &x : xs_init)
-      debug_file_yaml << "  - " << x.format(FMT) << std::endl;
+  // create_dir_if_necessary(options_trajopt_local.debug_file_name.c_str());
+  // std::ofstream debug_file_yaml(options_trajopt_local.debug_file_name);
+  // {
+  //   debug_file_yaml << "robotType: " << problem.robotType << std::endl;
+  //   debug_file_yaml << "N: " << N << std::endl;
+  //   debug_file_yaml << "start: " << start.format(FMT) << std::endl;
+  //   debug_file_yaml << "goal: " << goal.format(FMT) << std::endl;
+  //   debug_file_yaml << "xs0: " << std::endl;
+  //   for (auto &x : xs_init)
+  //     debug_file_yaml << "  - " << x.format(FMT) << std::endl;
 
-    debug_file_yaml << "us0: " << std::endl;
-    for (auto &x : us_init)
-      debug_file_yaml << "  - " << x.format(FMT) << std::endl;
-  }
+  //   debug_file_yaml << "us0: " << std::endl;
+  //   for (auto &x : us_init)
+  //     debug_file_yaml << "  - " << x.format(FMT) << std::endl;
+  // }
 
   bool __free_time_mode = solver == SOLVER::traj_opt_free_time_proxi;
 
@@ -1269,15 +1270,15 @@ void __trajectory_optimization(
     }
 
     // write out the solution
-    {
-      debug_file_yaml << "xsOPT: " << std::endl;
-      for (auto &x : xs_out)
-        debug_file_yaml << "  - " << x.format(FMT) << std::endl;
+    // {
+    //   debug_file_yaml << "xsOPT: " << std::endl;
+    //   for (auto &x : xs_out)
+    //     debug_file_yaml << "  - " << x.format(FMT) << std::endl;
 
-      debug_file_yaml << "usOPT: " << std::endl;
-      for (auto &u : us_out)
-        debug_file_yaml << "  - " << u.format(FMT) << std::endl;
-    }
+    //   debug_file_yaml << "usOPT: " << std::endl;
+    //   for (auto &u : us_out)
+    //     debug_file_yaml << "  - " << u.format(FMT) << std::endl;
+    // }
   }
 
   // END OF Optimization
@@ -1322,7 +1323,7 @@ void __trajectory_optimization(
 
   if (opti_out.success) {
     double traj_tol = 1e-2;
-    double goal_tol = 1e-2;
+    double goal_tol = 1e-1;
     double col_tol = 1e-4;
     double x_bound_tol = 1e-2;
     double u_bound_tol = 1e-3;
