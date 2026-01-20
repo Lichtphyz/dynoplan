@@ -1075,7 +1075,7 @@ void __trajectory_optimization(
   size_t num_smooth_iterations =
       dt > .05 ? 3 : 5; // TODO: put this as an option in command line
 
-  std::vector<Eigen::VectorXd> xs_init__ = xs_init;
+  // std::vector<Eigen::VectorXd> xs_init__ = xs_init;
 
   if (startsWith(problem.robotType, "quad3d") &&
       !startsWith(problem.robotType, "quad3dpayload")) {
@@ -1129,11 +1129,11 @@ void __trajectory_optimization(
     }
 
     std::vector<Vxd> regs;
-    if (options_trajopt_local.states_reg && solver == SOLVER::traj_opt) {
-      double state_reg_weight = 100.;
-      regs = std::vector<Vxd>(xs_init.size() - 1,
-                              state_reg_weight * Vxd::Ones(_nx));
-    }
+    // if (options_trajopt_local.states_reg && solver == SOLVER::traj_opt) {
+    //   double state_reg_weight = 100.;
+    //   regs = std::vector<Vxd>(xs_init.size() - 1,
+    //                           state_reg_weight * Vxd::Ones(_nx));
+    // }
 
     Generate_params gen_args{
         .free_time = __free_time_mode,
@@ -1147,7 +1147,8 @@ void __trajectory_optimization(
         .states_weights = regs,
         .actions = us_init,
         .collisions = options_trajopt_local.collision_weight > 1e-3,
-        .track_reference = options_trajopt_local.track_reference
+        .reg_control = options_trajopt_local.reg_control,
+        .regularize_state = options_trajopt_local.states_reg,
     };
 
     std::cout << "gen problem " << STR_(AT) << std::endl;

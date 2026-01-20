@@ -35,7 +35,8 @@ struct Generate_params {
   bool goal_cost = true;
   bool collisions = true;
   double penalty = 1; // penalty for the constraints
-  bool track_reference = false;
+  bool reg_control = false;
+  bool regularize_state = false;
   void print(std::ostream &out) const;
 };
 

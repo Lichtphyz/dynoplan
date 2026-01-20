@@ -14,7 +14,7 @@ struct Options_trajopt {
   bool check_with_finite_diff = false;
 
   bool soft_control_bounds = false;
-  bool CALLBACKS = true;
+  bool CALLBACKS = false;
   std::string solver_name;
   bool use_finite_diff = false;
   bool use_warmstart = true;
@@ -41,7 +41,8 @@ struct Options_trajopt {
   std::string debug_file_name = "/tmp/debug_file.yaml";
   double weight_goal = 500.;
   double collision_weight = 350.;
-  bool smooth_traj = true;
+  double control_reg_weight = 10.0;
+  bool smooth_traj = false;
   bool shift_repeat = false;
 
   double tsearch_max_rate = 2;
@@ -51,7 +52,7 @@ struct Options_trajopt {
   bool interp = false;
   bool welf_format = false;
   bool linear_search = false;
-  bool track_reference = false;
+  bool reg_control = false;
   int penalty_iterations = 1;
   std::string name = "";
 

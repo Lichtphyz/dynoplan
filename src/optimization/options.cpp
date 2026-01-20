@@ -23,6 +23,7 @@ void Options_trajopt::add_options(po::options_description &desc) {
   set_from_boostop(desc, VAR_WITH_NAME(states_reg));
   set_from_boostop(desc, VAR_WITH_NAME(init_reg));
   set_from_boostop(desc, VAR_WITH_NAME(control_bounds));
+  set_from_boostop(desc, VAR_WITH_NAME(CALLBACKS));
   set_from_boostop(desc, VAR_WITH_NAME(max_iter));
   set_from_boostop(desc, VAR_WITH_NAME(window_optimize));
   set_from_boostop(desc, VAR_WITH_NAME(window_shift));
@@ -34,6 +35,7 @@ void Options_trajopt::add_options(po::options_description &desc) {
   set_from_boostop(desc, VAR_WITH_NAME(k_contour));
   set_from_boostop(desc, VAR_WITH_NAME(smooth_traj));
   set_from_boostop(desc, VAR_WITH_NAME(weight_goal));
+  set_from_boostop(desc, VAR_WITH_NAME(control_reg_weight));
   set_from_boostop(desc, VAR_WITH_NAME(shift_repeat));
   set_from_boostop(desc, VAR_WITH_NAME(solver_name));
   set_from_boostop(desc, VAR_WITH_NAME(tsearch_max_rate));
@@ -41,7 +43,7 @@ void Options_trajopt::add_options(po::options_description &desc) {
   set_from_boostop(desc, VAR_WITH_NAME(tsearch_num_check));
   set_from_boostop(desc, VAR_WITH_NAME(welf_format));
   set_from_boostop(desc, VAR_WITH_NAME(linear_search));
-  set_from_boostop(desc, VAR_WITH_NAME(track_reference));
+  set_from_boostop(desc, VAR_WITH_NAME(reg_control));
   set_from_boostop(desc, VAR_WITH_NAME(penalty_iterations));
 
 }
@@ -65,6 +67,7 @@ void Options_trajopt::__read_from_node(const YAML::Node &node) {
   set_from_yaml(node, VAR_WITH_NAME(rollout_warmstart));
   set_from_yaml(node, VAR_WITH_NAME(u_bound_scale));
   set_from_yaml(node, VAR_WITH_NAME(interp));
+  set_from_yaml(node, VAR_WITH_NAME(CALLBACKS));
   set_from_yaml(node, VAR_WITH_NAME(ref_x0));
   set_from_yaml(node, VAR_WITH_NAME(collision_weight));
   set_from_yaml(node, VAR_WITH_NAME(th_acceptnegstep));
@@ -82,6 +85,7 @@ void Options_trajopt::__read_from_node(const YAML::Node &node) {
   set_from_yaml(node, VAR_WITH_NAME(max_mpc_iterations));
   set_from_yaml(node, VAR_WITH_NAME(debug_file_name));
   set_from_yaml(node, VAR_WITH_NAME(weight_goal));
+  set_from_yaml(node, VAR_WITH_NAME(control_reg_weight));
   set_from_yaml(node, VAR_WITH_NAME(collision_weight));
   set_from_yaml(node, VAR_WITH_NAME(smooth_traj));
   set_from_yaml(node, VAR_WITH_NAME(shift_repeat));
@@ -89,7 +93,7 @@ void Options_trajopt::__read_from_node(const YAML::Node &node) {
   set_from_yaml(node, VAR_WITH_NAME(tsearch_min_rate));
   set_from_yaml(node, VAR_WITH_NAME(tsearch_num_check));
   set_from_yaml(node, VAR_WITH_NAME(linear_search));
-  set_from_yaml(node, VAR_WITH_NAME(track_reference));
+  set_from_yaml(node, VAR_WITH_NAME(reg_control));
   set_from_yaml(node, VAR_WITH_NAME(penalty_iterations));
 }
 
@@ -145,7 +149,7 @@ void Options_trajopt::print(std::ostream &out, const std::string &be,
   out << be << STR(tsearch_min_rate, af) << std::endl;
   out << be << STR(tsearch_num_check, af) << std::endl;
   out << be << STR(linear_search, af) << std::endl;
-  out << be << STR(track_reference, af) << std::endl;
+  out << be << STR(reg_control, af) << std::endl;
   out << be << STR(penalty_iterations, af) << std::endl;
 }
 
