@@ -231,12 +231,15 @@ generate_problem(const Generate_params &gen_args,
         feats_run.push_back(acc_cost);
       }
 
-      if (gen_args.regularize_state) {
+      if (control_mode == Control_Mode::default_mode && gen_args.regularize_state) {
         if (t < 5) std::cout << "adding regularization on the acceleration and state! " << std::endl;
         auto ptr_derived = std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(gen_args.model_robot);
 
         ptr<Cost> state_reg_feature = mk<State_cost>(nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
         feats_run.push_back(state_reg_feature);
+
+        ptr<Cost> acc_feature = mk<mujoco_quads_payload_acc>(gen_args.model_robot, gen_args.model_robot->k_acc);
+        feats_run.push_back(acc_feature);
       }
     
     }

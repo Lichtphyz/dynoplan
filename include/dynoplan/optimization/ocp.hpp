@@ -63,4 +63,9 @@ std::vector<Eigen::VectorXd>
 smooth_traj2(const std::vector<Eigen::VectorXd> &xs_init,
              const dynobench::StateDyno &state);
 
+void optimize_N_steps(const dynobench::Problem &problem,
+                             const dynobench::Trajectory &init_guess,
+                             const Options_trajopt &opti_parms,
+                             dynobench::Trajectory &traj,
+                             Result_opti &opti_out);
 } // namespace dynoplan

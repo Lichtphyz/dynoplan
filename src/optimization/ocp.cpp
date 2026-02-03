@@ -990,7 +990,7 @@ void solve_for_fixed_penalty(
   for (auto &x : xs_out) {
     model_robot->ensure(x);
   }
-
+  std::cout << "solving with croco -- DONE " << AT << std::endl;
   // write_states_controls(xs_out, us_out, model_robot, problem, filename.c_str());
   // report_problem(problem_croco, xs_out, us_out, "/tmp/dynoplan/report-1.yaml");
 };
@@ -1543,6 +1543,178 @@ void trajectory_optimization(const dynobench::Problem &problem,
   opti_out.data.insert({"time_raw", std::to_string(time_raw)});
   opti_out.data.insert({"time_ddp_total", std::to_string(time_ddp_total)});
 }
+
+
+void optimize_N_steps(const dynobench::Problem &problem,
+                             const Trajectory &init_guess,
+                             const Options_trajopt &options_trajopt,
+                             Trajectory &traj, Result_opti &opti_out) {
+
+  double time_ddp_total = 0;
+  Stopwatch watch;
+  Options_trajopt options_trajopt_local = options_trajopt;
+
+  std::shared_ptr<dynobench::Model_robot> model_robot;
+  model_robot = dynobench::robot_factory(
+      (problem.models_base_path + problem.robotType + ".yaml").c_str(),
+      problem.p_lb, problem.p_ub);
+
+  load_env(*model_robot, problem);
+
+  Trajectory tmp_init_guess(init_guess), tmp_solution;
+
+  for (auto &s : tmp_init_guess.states)
+    model_robot->ensure(s);
+
+  CSTR_(model_robot->ref_dt);
+
+  if (!tmp_init_guess.states.size() && tmp_init_guess.num_time_steps == 0) {
+    ERROR_WITH_INFO("define either xs_init or num time steps");
+  }
+
+  if (!tmp_init_guess.states.size() && !tmp_init_guess.actions.size()) {
+
+    std::cout << "Warning: no xs_init or us_init has been provided. "
+              << std::endl;
+
+    tmp_init_guess.states.resize(init_guess.num_time_steps + 1);
+
+    std::for_each(tmp_init_guess.states.begin(), tmp_init_guess.states.end(),
+                  [&](auto &x) {
+                    if (options_trajopt_local.ref_x0)
+                      x = model_robot->get_x0(problem.start);
+                    else
+                      x = problem.start;
+                  });
+
+    tmp_init_guess.actions.resize(tmp_init_guess.states.size() - 1);
+    std::for_each(tmp_init_guess.actions.begin(), tmp_init_guess.actions.end(),
+                  [&](auto &x) { x = model_robot->u_0; });
+
+    CSTR_V(tmp_init_guess.states.front());
+    CSTR_V(tmp_init_guess.actions.front());
+  }
+
+  if (tmp_init_guess.states.size() && !tmp_init_guess.actions.size()) {
+
+    std::cout << "Warning: no us_init has been provided -- using u_0: "
+              << model_robot->u_0.format(FMT) << std::endl;
+
+    tmp_init_guess.actions.resize(tmp_init_guess.states.size() - 1);
+
+    std::for_each(tmp_init_guess.actions.begin(), tmp_init_guess.actions.end(),
+                  [&](auto &x) { x = model_robot->u_0; });
+  }
+
+
+  DYNO_CHECK(tmp_init_guess.actions.size(), AT);
+  DYNO_CHECK(tmp_init_guess.states.size(), AT);
+  DYNO_CHECK_EQ(tmp_init_guess.states.size(), tmp_init_guess.actions.size() + 1, AT);
+  
+  const std::string folder_tmptraj = "/tmp/dynoplan/";
+  auto callback_dyno = mk<CallVerboseDyno>();
+  size_t ddp_iterations = 0;
+  double ddp_time = 0;
+  bool verbose = false;
+  auto xs_init = tmp_init_guess.states;
+  auto us_init = tmp_init_guess.actions;
+  size_t _nx = model_robot->nx; // state
+  size_t _nu = model_robot->nu;
+  std::string name = model_robot->name;
+  size_t N = init_guess.actions.size();
+  auto goal = problem.goal;
+  auto start = problem.start;
+  double dt = model_robot->ref_dt;
+  const bool store_iterations = false;
+  bool success = false;
+  SOLVER solver = static_cast<SOLVER>(options_trajopt_local.solver_id);
+  bool __free_time_mode = solver == SOLVER::traj_opt_free_time_proxi;
+    
+  std::vector<Vxd> regs; // placeholder
+  Generate_params gen_args{
+      .free_time = __free_time_mode,
+      .free_time_linear = false,
+      .name = name,
+      .N = N,
+      .goal = goal,
+      .start = start,
+      .model_robot = model_robot,
+      .states = {xs_init.begin(), xs_init.end() - 1},
+      .states_weights = regs,
+      .actions = us_init,
+      .collisions = options_trajopt_local.collision_weight > 1e-3,
+      .reg_control = options_trajopt_local.reg_control,
+      .regularize_state = options_trajopt_local.states_reg,
+  };
+
+  std::cout << "gen problem " << STR_(AT) << std::endl;
+  std::vector<Eigen::VectorXd> _xs_out, _us_out, xs_init_p, us_init_p;
+
+  xs_init_p = xs_init;
+  us_init_p = us_init;
+  const size_t penalty_iterations = options_trajopt_local.penalty_iterations;
+  for (size_t i = 0; i < penalty_iterations; i++) {
+    std::cout << "PENALTY iteration " << i << std::endl;
+    gen_args.penalty = std::pow(10., double(i) / 2.);
+
+    if (i > 0) {
+      options_trajopt_local.noise_level = 0;
+    }
+
+    solve_for_fixed_penalty(gen_args, options_trajopt_local, xs_init_p, us_init_p,
+                            false /*check_with_finite_diff*/, N,
+                            name, ddp_iterations, ddp_time, _xs_out, _us_out,
+                            model_robot, problem, folder_tmptraj,
+                            store_iterations, callback_dyno);
+
+    xs_init_p = _xs_out;
+    us_init_p = _us_out;
+  }
+  
+  opti_out.xs_out = _xs_out;
+  opti_out.us_out = _us_out;
+  opti_out.cost = _us_out.size() * dt;
+  traj.states = _xs_out;
+  traj.actions = _us_out;
+  traj.start = problem.start;
+  traj.goal = problem.goal;
+  traj.cost = traj.actions.size() * model_robot->ref_dt;
+  traj.info = "\"ddp_iterations=" + std::to_string(ddp_iterations) +
+              ";"
+              "ddp_time=" +
+              std::to_string(ddp_time) + "\"";
+  
+
+  double traj_tol = 1e-2;
+  double goal_tol = 10000.0; // disable goal tol
+  double col_tol = 1e-3;
+  double x_bound_tol = 1e-2;
+  double u_bound_tol = 1e-3;
+  dynobench::Feasibility_thresholds thresholds{.traj_tol = traj_tol,
+                                                  .goal_tol = goal_tol,
+                                                  .col_tol = col_tol,
+                                                  .x_bound_tol = x_bound_tol,
+                                                  .u_bound_tol = u_bound_tol};
+  traj.update_feasibility(thresholds);
+  std::cout << "Final CHECK" << std::endl;
+  std::cout << "states size " << traj.states.size() << std::endl;
+  std::cout << "actions size " << traj.actions.size() << std::endl;
+  traj.check(model_robot, true);
+  opti_out.feasible = traj.feasible;
+  success = traj.feasible;
+  opti_out.success = success;
+  opti_out.data.insert({"ddp_time", std::to_string(ddp_time)});
+  time_ddp_total += std::stod(opti_out.data.at("ddp_time"));
+  CSTR_(time_ddp_total);
+  DYNO_CHECK_EQ(traj.feasible, opti_out.feasible, AT);
+  
+
+  double time_raw = watch.elapsed_ms();
+  opti_out.data.insert({"time_raw", std::to_string(time_raw)});
+  opti_out.data.insert({"time_ddp_total", std::to_string(time_ddp_total)});
+}
+
+
 
 void Result_opti::write_yaml(std::ostream &out) {
   out << "feasible: " << feasible << std::endl;

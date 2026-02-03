@@ -391,3 +391,147 @@ bool execute_optMujoco(std::string &env_file,
         return false;
     }
 }
+
+
+
+// bool execute_optILMujoco(std::string &env_file,
+//                        std::string &init_file,
+//                        std::string &results_file,
+//                        std::string &output_file_anytime,
+//                        dynobench::Trajectory &sol,
+//                        const std::string &dynobench_base,
+//                        bool sum_robots_cost, dynobench::Trajectory &sol_broken, std::string cfg_file, const size_t N_opt) 
+// {
+//     std::string models_base_path = dynobench_base + "/models/";
+//     Result_opti result;
+//     Options_trajopt options_trajopt;
+//     if (cfg_file == "") {
+//         options_trajopt.solver_id = 1;
+//         options_trajopt.max_iter = 100;
+//         options_trajopt.noise_level = 1e-4;
+//         options_trajopt.collision_weight = 250;
+//         options_trajopt.weight_goal = 600.;
+//         options_trajopt.time_ref = 0.5;
+//         options_trajopt.time_weight = 0.7;
+//     } else { 
+//         options_trajopt.read_from_yaml(cfg_file.c_str());
+//     }
+//     dynobench::Problem problem(env_file.c_str());
+//     problem.models_base_path = models_base_path;
+//     dynobench::Trajectory init_guess;
+//     init_guess.read_from_yaml(init_file.c_str());
+//     while (init_guess.states.size() < N_opt+1) {
+//         init_guess.states.push_back(init_guess.states.back());
+//     }
+    
+//     if (init_guess.states.size() > N_opt+1) {
+//         init_guess.states.resize(N_opt+1);
+//     }
+//     while (init_guess.actions.size() < N_opt) {
+//         init_guess.actions.push_back(init_guess.actions.back());
+//     }
+//     if (init_guess.actions.size() > N_opt) {
+//         init_guess.actions.resize(N_opt);
+//     }    
+//     std::cout << "optimizing trajectory..." << std::endl;
+//     optimize_N_steps(problem, init_guess, options_trajopt, sol, result);
+//     sol_broken.states = result.xs_out;
+//     sol_broken.actions = result.us_out;
+
+
+//     if (result.feasible) {
+//         std::cout << "Optimization done. Results in: " << results_file << std::endl;
+//         return true;
+//     } else {
+//         sol.states = result.xs_out;
+//         sol.actions = result.us_out;
+//         std::cout << "Optimization failed." << std::endl;
+//         return false;
+//     }
+// }
+
+bool execute_optILMujoco(std::string &env_file,
+                       std::string &init_file,
+                       std::string &results_file,
+                       std::string &output_file_anytime,
+                       dynobench::Trajectory &sol,
+                       const std::string &dynobench_base,
+                       bool sum_robots_cost, dynobench::Trajectory &sol_broken,
+                       std::string cfg_file, const size_t N_opt) 
+{
+    std::string models_base_path = dynobench_base + "/models/";
+    Result_opti result;
+    Options_trajopt options_trajopt;
+    if (cfg_file == "") {
+        options_trajopt.solver_id = 1;
+        options_trajopt.max_iter = 100;
+        options_trajopt.noise_level = 1e-4;
+        options_trajopt.collision_weight = 250;
+        options_trajopt.weight_goal = 600.;
+        options_trajopt.time_ref = 0.5;
+        options_trajopt.time_weight = 0.7;
+    } else { 
+        options_trajopt.read_from_yaml(cfg_file.c_str());
+    }
+
+    dynobench::Problem problem(env_file.c_str());
+    problem.models_base_path = models_base_path;
+
+    dynobench::Trajectory init_guess;
+    init_guess.read_from_yaml(init_file.c_str());
+
+    while (init_guess.states.size() < N_opt + 1) {
+        init_guess.states.push_back(init_guess.states.back());
+    }
+    if (init_guess.states.size() > N_opt + 1) {
+        init_guess.states.resize(N_opt + 1);
+    }
+
+    while (init_guess.actions.size() < N_opt) {
+        init_guess.actions.push_back(init_guess.actions.back());
+    }
+    if (init_guess.actions.size() > N_opt) {
+        init_guess.actions.resize(N_opt);
+    }
+
+    std::cout << "optimizing trajectory..." << std::endl;
+    optimize_N_steps(problem, init_guess, options_trajopt, sol, result);
+
+    sol_broken.states = result.xs_out;
+    sol_broken.actions = result.us_out;
+
+    if (result.feasible) {
+        std::cout << "Optimization done. Results in: " << results_file << std::endl;
+        return true;
+    } else {
+        std::cout << "Optimization failed. Falling back to first 2 steps." << std::endl;
+
+        // ---- fallback: keep first 2 steps (2 actions, 3 states) if available ----
+        const size_t K = 2;
+
+        if (result.xs_out.size() >= K + 1 && result.us_out.size() >= K) {
+            sol.states.assign(result.xs_out.begin(), result.xs_out.begin() + (K + 1));
+            sol.actions.assign(result.us_out.begin(), result.us_out.begin() + K);
+
+            // keep these consistent (optional but nice)
+            sol.start = problem.start;
+            sol.goal  = problem.goal;
+            // sol.cost  = sol.actions.size() * model.ref_dt; // if you have ref_dt here; otherwise omit
+            sol.feasible = false; // it's still an infeasible solution overall
+        } else {
+            // Not enough output; last-resort: just keep init guess first 2 steps
+            if (init_guess.states.size() >= K + 1 && init_guess.actions.size() >= K) {
+                sol.states.assign(init_guess.states.begin(), init_guess.states.begin() + (K + 1));
+                sol.actions.assign(init_guess.actions.begin(), init_guess.actions.begin() + K);
+                sol.feasible = false;
+            } else {
+                // absolute minimum: just keep x0
+                sol.states = {problem.start};
+                sol.actions.clear();
+                sol.feasible = false;
+            }
+        }
+
+        return true;
+    }
+}

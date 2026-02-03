@@ -17,3 +17,11 @@ void execute_simMujoco(std::string &env_file,
                        const std::string &video_path,
                        const std::string &camera_view = "auto",
                        int num_repeats = 1, bool view_ghost = false, bool feasible = false);
+
+bool execute_optILMujoco(std::string &env_file,
+                       std::string &initial_guess_file,
+                       std::string &output_file,
+                       std::string &output_file_anytime,
+                       dynobench::Trajectory &sol,
+                       const std::string &dynobench_base,
+                       bool sum_robots_cost,  dynobench::Trajectory &sol_broken, std::string cfg_file="", const size_t N_opt=50);
