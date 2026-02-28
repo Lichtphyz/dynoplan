@@ -480,19 +480,19 @@ bool execute_optILMujoco(std::string &env_file,
     dynobench::Trajectory init_guess;
     init_guess.read_from_yaml(init_file.c_str());
 
-    while (init_guess.states.size() < N_opt + 1) {
-        init_guess.states.push_back(init_guess.states.back());
-    }
-    if (init_guess.states.size() > N_opt + 1) {
-        init_guess.states.resize(N_opt + 1);
-    }
+    // while (init_guess.states.size() < N_opt + 1) {
+    //     init_guess.states.push_back(init_guess.states.back());
+    // }
+    // if (init_guess.states.size() > N_opt + 1) {
+    //     init_guess.states.resize(N_opt + 1);
+    // }
 
-    while (init_guess.actions.size() < N_opt) {
-        init_guess.actions.push_back(init_guess.actions.back());
-    }
-    if (init_guess.actions.size() > N_opt) {
-        init_guess.actions.resize(N_opt);
-    }
+    // while (init_guess.actions.size() < N_opt) {
+    //     init_guess.actions.push_back(init_guess.actions.back());
+    // }
+    // if (init_guess.actions.size() > N_opt) {
+    //     init_guess.actions.resize(N_opt);
+    // }
 
     std::cout << "optimizing trajectory..." << std::endl;
     optimize_N_steps(problem, init_guess, options_trajopt, sol, result);
@@ -506,8 +506,8 @@ bool execute_optILMujoco(std::string &env_file,
     } else {
         std::cout << "Optimization failed. Falling back to first 2 steps." << std::endl;
 
-        // ---- fallback: keep first 2 steps (2 actions, 3 states) if available ----
-        const size_t K = 2;
+        // ---- fallback: keep first 2 steps (1 actions, 2 states) if available ----
+        const size_t K = 1;
 
         if (result.xs_out.size() >= K + 1 && result.us_out.size() >= K) {
             sol.states.assign(result.xs_out.begin(), result.xs_out.begin() + (K + 1));

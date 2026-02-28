@@ -61,6 +61,8 @@ struct Options_tdbastar {
   bool check_cols = true;
   bool rewire = true; // to allow rewiring during the search
   bool shuffle = false; // shuffle motions when loading
+  bool collect_expanded_trajs =
+      true; // store full expanded trajectories in expanded_trajs output vector
 
   void add_options(po::options_description &desc);
 

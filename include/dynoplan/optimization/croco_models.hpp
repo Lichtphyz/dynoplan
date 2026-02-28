@@ -615,6 +615,40 @@ struct mujoco_quads_payload_acc : Cost {
   virtual ~mujoco_quads_payload_acc() = default;
 };
 
+// Softly align each cable direction (quad -> payload) with world down [0,0,-1].
+// Residual stacks 3D direction errors for each quad:
+//   r_i = k * ( normalize(p_payload - p_quad_i) - [0,0,-1] )
+// This discourages pathological formations where a quad goes below the payload.
+struct mujoco_quads_payload_cable_dir_cost : Cost {
+
+  std::shared_ptr<dynobench::Model_robot> model;
+  double k_dir = 1.0;
+  int num_bodies = 0;
+  int num_quads = 0;
+  int nq_pos = 0; // 7 * num_bodies (pose block length)
+
+  Eigen::Vector3d d_ref;
+  Eigen::VectorXd rbuf;
+  Eigen::MatrixXd Jx_res; // nr x nx (only pose position blocks nonzero)
+
+  mujoco_quads_payload_cable_dir_cost(
+      const std::shared_ptr<dynobench::Model_robot> &model_robot, double k_dir);
+
+  virtual void calc(Eigen::Ref<Eigen::VectorXd> r,
+                    const Eigen::Ref<const Eigen::VectorXd> &x,
+                    const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual void calcDiff(Eigen::Ref<Eigen::VectorXd> Lx,
+                        Eigen::Ref<Eigen::VectorXd> Lu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxx,
+                        Eigen::Ref<Eigen::MatrixXd> Luu,
+                        Eigen::Ref<Eigen::MatrixXd> Lxu,
+                        const Eigen::Ref<const Eigen::VectorXd> &x,
+                        const Eigen::Ref<const Eigen::VectorXd> &u) override;
+
+  virtual ~mujoco_quads_payload_cable_dir_cost() = default;
+};
+
 
 struct Quad3d_acceleration_cost : Cost {
 
