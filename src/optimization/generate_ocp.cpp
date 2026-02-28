@@ -92,6 +92,7 @@ generate_problem(const Generate_params &gen_args,
 
   bool use_hard_bounds = options_trajopt.control_bounds;
 
+    ptr<Cost> start_cost_feature = mk<State_cost_model>(gen_args.model_robot, nx, nu, options_trajopt.weight_goal * gen_args.model_robot->goal_weight, gen_args.start);
   if (options_trajopt.soft_control_bounds) {
     use_hard_bounds = false;
   }
@@ -99,10 +100,15 @@ generate_problem(const Generate_params &gen_args,
   // CHECK(
   //     !(options_trajopt.control_bounds &&
   //     options_trajopt.soft_control_bounds), AT);
-  Vxd control_ref = Vxd::Zero(nu);
+  Vxd control_ref = Vxd::Ones(nu);
+  bool payload_reg_overrides_applied = false;
   for (size_t t = 0; t < gen_args.N; t++) {
 
     std::vector<ptr<Cost>> feats_run;
+
+    if (t == 0) {
+      feats_run.push_back(start_cost_feature);
+    }
     if (gen_args.reg_control) {
       if (t < ref_traj.actions.size()) {
         if (t < 5) std::cout << "adding regularization for control! " << std::endl;
@@ -113,16 +119,20 @@ generate_problem(const Generate_params &gen_args,
       }
 
       // Vxd state_weights = Vxd::Constant(nx, 0.0);
-      // state_weights.segment(0, 3).setConstant(10.0); // only payload pos
+      // int n_bodies = (int) nx / 13;
+      // for (int i=0; i < n_bodies; i++) {
+      //   state_weights.segment(i*7, 3).setConstant(500.0); // payload pos
+      // }
+      // // state_weights.segment(0, 3).setConstant(100.0); // only payload pos
       // Vxd state_ref = Vxd::Zero(nx);
       // state_ref     = ref_traj.states.at(t);
       // ptr<Cost> state_track_feature = mk<State_cost>(
-      //   nx, nu, nx, state_weights, state_ref);
+      //   nx, nu, nx, state_weights, gen_args.goal);
       //   feats_run.push_back(state_track_feature);
     }
 
 
-    if (gen_args.collisions && gen_args.model_robot->env) {
+    if (gen_args.collisions) {
       ptr<Cost> cl_feature = mk<Col_cost>(nx, nu, 1, gen_args.model_robot,
                                           options_trajopt.collision_weight);
       feats_run.push_back(cl_feature);
@@ -214,13 +224,73 @@ generate_problem(const Generate_params &gen_args,
     // exit(3);
     // COSTS FOR MUJOCO QUADROTOR PAYLOAD
     if (startsWith(gen_args.name, "mujocoquadspayload")) {
+      auto ptr_derived =
+          std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(
+              gen_args.model_robot);
+      if (ptr_derived && !payload_reg_overrides_applied) {
+        const bool has_any_override =
+            options_trajopt.mujoco_payload_k_acc >= 0.0 ||
+            options_trajopt.mujoco_payload_reg_w_quat >= 0.0 ||
+            options_trajopt.mujoco_payload_reg_w_vel >= 0.0 ||
+            options_trajopt.mujoco_payload_reg_w_ang_vel >= 0.0 ||
+            options_trajopt.mujoco_payload_reg_w_payload_pos >= 0.0 ||
+            options_trajopt.mujoco_payload_reg_w_quad_pos >= 0.0 ||
+            options_trajopt.mujoco_payload_reg_w_cable_dir >= 0.0;
+        if (has_any_override) {
+          const std::size_t nq = ptr_derived->params.num_robots;
+          const std::size_t nb = 1 + nq;
+          const std::size_t qpos_dim = 7 * nb;
+          const std::size_t qvel_start = qpos_dim;
+          if (options_trajopt.mujoco_payload_k_acc >= 0.0) {
+            ptr_derived->k_acc = options_trajopt.mujoco_payload_k_acc;
+          }
+          if (ptr_derived->state_weights.size() == ptr_derived->nx &&
+              ptr_derived->state_ref.size() == ptr_derived->nx) {
+            if (options_trajopt.mujoco_payload_reg_w_payload_pos >= 0.0) {
+              ptr_derived->state_weights.segment<3>(0).setConstant(
+                  options_trajopt.mujoco_payload_reg_w_payload_pos);
+            }
+            if (options_trajopt.mujoco_payload_reg_w_vel >= 0.0) {
+              ptr_derived->state_weights.segment<3>(qvel_start).setConstant(
+                  options_trajopt.mujoco_payload_reg_w_vel);
+            }
+            for (std::size_t i = 0; i < nq; ++i) {
+              const std::size_t body_idx = 1 + i;
+              const std::size_t qpos_base = 7 * body_idx;
+              const std::size_t qvel_base = qvel_start + 6 * body_idx;
+              if (options_trajopt.mujoco_payload_reg_w_quad_pos >= 0.0) {
+                ptr_derived->state_weights.segment<3>(qpos_base).setConstant(
+                    options_trajopt.mujoco_payload_reg_w_quad_pos);
+              }
+              if (options_trajopt.mujoco_payload_reg_w_quat >= 0.0) {
+                ptr_derived->state_weights.segment<4>(qpos_base + 3).setConstant(
+                    options_trajopt.mujoco_payload_reg_w_quat);
+              }
+              if (options_trajopt.mujoco_payload_reg_w_vel >= 0.0) {
+                ptr_derived->state_weights.segment<3>(qvel_base).setConstant(
+                    options_trajopt.mujoco_payload_reg_w_vel);
+              }
+              if (options_trajopt.mujoco_payload_reg_w_ang_vel >= 0.0) {
+                ptr_derived->state_weights.segment<3>(qvel_base + 3).setConstant(
+                    options_trajopt.mujoco_payload_reg_w_ang_vel);
+              }
+            }
+          }
+          std::cout << "[trajopt] applied mujocoquadspayload overrides: "
+                    << "k_acc=" << ptr_derived->k_acc
+                    << " w_quat=" << options_trajopt.mujoco_payload_reg_w_quat
+                    << " w_vel=" << options_trajopt.mujoco_payload_reg_w_vel
+                    << " w_ang_vel=" << options_trajopt.mujoco_payload_reg_w_ang_vel
+                    << " w_payload_pos=" << options_trajopt.mujoco_payload_reg_w_payload_pos
+                    << " w_quad_pos=" << options_trajopt.mujoco_payload_reg_w_quad_pos
+                    << " w_cable_dir=" << options_trajopt.mujoco_payload_reg_w_cable_dir
+                    << std::endl;
+        }
+        payload_reg_overrides_applied = true;
+      }
       if (control_mode == Control_Mode::free_time) {
         // std::cout << "adding regularization on the acceleration! " << std::endl;
 
-        auto ptr_derived =
-            std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(
-                gen_args.model_robot);
-        
         if (gen_args.regularize_state) {
           ptr<Cost> state_feature = mk<State_cost>(
               nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
@@ -229,17 +299,26 @@ generate_problem(const Generate_params &gen_args,
         ptr<Cost> acc_cost = mk<mujoco_quads_payload_acc>(
             gen_args.model_robot, gen_args.model_robot->k_acc);
         feats_run.push_back(acc_cost);
+        if (options_trajopt.mujoco_payload_reg_w_cable_dir > 0.0) {
+          ptr<Cost> cable_dir_feature = mk<mujoco_quads_payload_cable_dir_cost>(
+              gen_args.model_robot, options_trajopt.mujoco_payload_reg_w_cable_dir);
+          feats_run.push_back(cable_dir_feature);
+        }
       }
 
       if (control_mode == Control_Mode::default_mode && gen_args.regularize_state) {
         if (t < 5) std::cout << "adding regularization on the acceleration and state! " << std::endl;
-        auto ptr_derived = std::dynamic_pointer_cast<dynobench::Model_MujocoQuadsPayload>(gen_args.model_robot);
 
         ptr<Cost> state_reg_feature = mk<State_cost>(nx, nu, nx, ptr_derived->state_weights, ptr_derived->state_ref);
         feats_run.push_back(state_reg_feature);
 
         ptr<Cost> acc_feature = mk<mujoco_quads_payload_acc>(gen_args.model_robot, gen_args.model_robot->k_acc);
         feats_run.push_back(acc_feature);
+        if (options_trajopt.mujoco_payload_reg_w_cable_dir > 0.0) {
+          ptr<Cost> cable_dir_feature = mk<mujoco_quads_payload_cable_dir_cost>(
+              gen_args.model_robot, options_trajopt.mujoco_payload_reg_w_cable_dir);
+          feats_run.push_back(cable_dir_feature);
+        }
       }
     
     }
@@ -312,6 +391,7 @@ generate_problem(const Generate_params &gen_args,
         gen_args.penalty * options_trajopt.weight_goal * goal_weight,
         // Vxd::Ones(gen_args.model_robot->nx),
         gen_args.goal);
+    
 
     feats_terminal.push_back(goal_feature);
   }

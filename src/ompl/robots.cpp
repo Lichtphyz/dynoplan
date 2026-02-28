@@ -3110,7 +3110,7 @@ void load_motion_primitives_new(const std::string &motionsFile,
 
   motions.resize(trajs.data.size());
 
-  bool add_noise_first_state = true;
+  bool add_noise_first_state = false;
   CSTR_(add_noise_first_state);
 
   if (add_noise_first_state) {

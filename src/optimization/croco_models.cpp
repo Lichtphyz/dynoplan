@@ -1690,6 +1690,87 @@ void mujoco_quads_payload_acc::calcDiff(
 }
 
 //////////////////////////////////
+
+mujoco_quads_payload_cable_dir_cost::mujoco_quads_payload_cable_dir_cost(
+    const std::shared_ptr<dynobench::Model_robot> &model_robot, double k_dir)
+    : Cost(model_robot->nx, model_robot->nu, 3 * (int(model_robot->nx / 13) - 1)),
+      model(model_robot), k_dir(k_dir) {
+
+  name = "mujoco_quads_payload_cable_dir";
+  num_bodies = int(model_robot->nx / 13);
+  num_quads = num_bodies - 1;
+  nq_pos = 7 * num_bodies;
+  d_ref << 0., 0., -1.;
+  rbuf.resize(nr);
+  rbuf.setZero();
+  Jx_res.resize(nr, nx);
+  Jx_res.setZero();
+}
+
+void mujoco_quads_payload_cable_dir_cost::calc(
+    Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+  (void)u;
+  check_input_calc(r, x, u);
+  DYNO_CHECK_GE(num_quads, 1, AT);
+
+  const auto poses = x.head(nq_pos);
+  const Eigen::Vector3d p_payload = poses.segment<3>(0);
+  const double eps = 1e-9;
+  for (int qi = 0; qi < num_quads; ++qi) {
+    const int base = 7 * (1 + qi);
+    const Eigen::Vector3d p_quad = poses.segment<3>(base);
+    const Eigen::Vector3d rel = p_payload - p_quad; // quad -> payload vector
+    const double L = std::max(rel.norm(), eps);
+    const Eigen::Vector3d d = rel / L;
+    r.segment<3>(3 * qi) = k_dir * (d - d_ref);
+  }
+}
+
+void mujoco_quads_payload_cable_dir_cost::calcDiff(
+    Eigen::Ref<Eigen::VectorXd> Lx, Eigen::Ref<Eigen::VectorXd> Lu,
+    Eigen::Ref<Eigen::MatrixXd> Lxx, Eigen::Ref<Eigen::MatrixXd> Luu,
+    Eigen::Ref<Eigen::MatrixXd> Lxu, const Eigen::Ref<const Eigen::VectorXd> &x,
+    const Eigen::Ref<const Eigen::VectorXd> &u) {
+
+  (void)Luu;
+  (void)Lxu;
+  check_input_calcDiff(Lx, Lu, Lxx, Luu, Lxu, x, u);
+  DYNO_CHECK_GE(num_quads, 1, AT);
+
+  Jx_res.setZero();
+  rbuf.setZero();
+
+  const auto poses = x.head(nq_pos);
+  const Eigen::Vector3d p_payload = poses.segment<3>(0);
+  const double eps = 1e-9;
+  const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+
+  for (int qi = 0; qi < num_quads; ++qi) {
+    const int qbase = 7 * (1 + qi);
+    const Eigen::Vector3d p_quad = poses.segment<3>(qbase);
+    const Eigen::Vector3d rel = p_payload - p_quad; // quad -> payload
+    const double L = std::max(rel.norm(), eps);
+    const Eigen::Vector3d d = rel / L;
+
+    rbuf.segment<3>(3 * qi) = k_dir * (d - d_ref);
+
+    // d(normalize(rel))/drel = I/L - rel*rel^T / L^3
+    const Eigen::Matrix3d Jdir_rel =
+        (I / L) - (rel * rel.transpose()) / (L * L * L);
+    const Eigen::Matrix3d Jblock = k_dir * Jdir_rel;
+
+    // rel = p_payload - p_quad
+    Jx_res.block<3, 3>(3 * qi, 0) += Jblock;
+    Jx_res.block<3, 3>(3 * qi, qbase) += -Jblock;
+  }
+
+  // Least-squares residual cost: 0.5 * ||r||^2
+  Lx.head(nx) += Jx_res.transpose() * rbuf;
+  Lxx.block(0, 0, nx, nx) += Jx_res.transpose() * Jx_res; // Gauss-Newton
+}
+
+//////////////////////////////////
 void Payload_n_acceleration_cost::calc(
     Eigen::Ref<Eigen::VectorXd> r, const Eigen::Ref<const Eigen::VectorXd> &x,
     const Eigen::Ref<const Eigen::VectorXd> &u) {

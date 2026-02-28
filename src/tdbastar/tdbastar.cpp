@@ -11,6 +11,7 @@
 // #include <boost/functional/hash.hpp>
 #include <boost/heap/d_ary_heap.hpp>
 #include <boost/program_options.hpp>
+#include <cstdlib>
 
 // OMPL headers
 #include <ompl/base/spaces/RealVectorStateSpace.h>
@@ -581,6 +582,13 @@ void tdbastar(
   // else {
   //   NOT_IMPLEMENTED;
   // }
+  std::unique_ptr<ompl::NearestNeighbors<Motion *>> T_m_owner(T_m);
+  std::unique_ptr<ompl::NearestNeighbors<std::shared_ptr<AStarNode>>> T_n_owner(
+      T_n);
+  if (heuristic_result) {
+    // Caller owns the heuristic NN pointer when requested (reverse search).
+    T_n_owner.release();
+  }
 
   time_bench.time_nearestMotion += timed_fun_void([&] {
     for (size_t i = 0;
@@ -591,6 +599,10 @@ void tdbastar(
 
   Expander expander(robot.get(), T_m,
                     options_tdbastar.alpha * options_tdbastar.delta);
+  if (options_tdbastar.fix_seed) {
+    // Deterministic mode: keep NN neighbor order stable instead of shuffling.
+    expander.random = false;
+  }
   if (options_tdbastar.alpha <= 0 || options_tdbastar.alpha >= 1) {
     ERROR_WITH_INFO("Alpha needs to be between 0 and 1!");
   }
@@ -641,6 +653,7 @@ void tdbastar(
   }
   open_t open;
   start_node->handle = open.push(start_node);
+  size_t open_peak_size = open.size();
 
   Motion fakeMotion;
   fakeMotion.idx = -1;
@@ -677,6 +690,7 @@ void tdbastar(
 
   Stopwatch watch;
   Terminate_status status = Terminate_status::UNKNOWN;
+  size_t expanded_count = 0;
 
   auto stop_search = [&] {
     if (static_cast<size_t>(time_bench.expands) >=
@@ -831,9 +845,12 @@ void tdbastar(
       if (gScore > upper_bound) {
         continue;
       }
-      auto tmp_traj = dynobench::trajWrapper_2_Trajectory(traj_wrapper);
-      tmp_traj.cost = best_node->gScore;
-      expanded_trajs.push_back(tmp_traj);
+      ++expanded_count;
+      if (options_tdbastar.collect_expanded_trajs) {
+        auto tmp_traj = dynobench::trajWrapper_2_Trajectory(traj_wrapper);
+        tmp_traj.cost = best_node->gScore;
+        expanded_trajs.push_back(std::move(tmp_traj));
+      }
       // CHECK if new State is NOVEL
       time_bench.time_nearestNode_search += timed_fun_void([&] {
         T_n->nearestR(tmp_node,
@@ -861,6 +878,7 @@ void tdbastar(
         __node->current_arrival_idx = 0;
         time_bench.time_queue +=
             timed_fun_void([&] { __node->handle = open.push(__node); });
+        open_peak_size = std::max(open_peak_size, open.size());
         time_bench.time_nearestNode_add +=
             timed_fun_void([&] { T_n->add(__node); });
 
@@ -905,6 +923,7 @@ void tdbastar(
                   n->is_in_open = true;
                   time_bench.time_queue +=
                       timed_fun_void([&] { n->handle = open.push(n); });
+                  open_peak_size = std::max(open_peak_size, open.size());
                 }
               }
             }
@@ -1013,6 +1032,28 @@ void tdbastar(
       std::make_pair("delta", std::to_string(options_tdbastar.delta)));
   out_info_tdb.data.insert(
       std::make_pair("num_primitives", std::to_string(motions.size())));
+  size_t arrivals_total = 0;
+  size_t arrivals_max_per_node = 0;
+  for (const auto &n : all_nodes) {
+    arrivals_total += n->arrivals.size();
+    arrivals_max_per_node = std::max(arrivals_max_per_node, n->arrivals.size());
+  }
+  out_info_tdb.data.insert(
+      std::make_pair("expanded_count", std::to_string(expanded_count)));
+  out_info_tdb.data.insert(
+      std::make_pair("all_nodes_count", std::to_string(all_nodes.size())));
+  out_info_tdb.data.insert(
+      std::make_pair("nn_nodes_count", std::to_string(T_n ? T_n->size() : 0)));
+  out_info_tdb.data.insert(
+      std::make_pair("expands_count", std::to_string(time_bench.expands)));
+  out_info_tdb.data.insert(
+      std::make_pair("open_peak_size", std::to_string(open_peak_size)));
+  out_info_tdb.data.insert(
+      std::make_pair("open_final_size", std::to_string(open.size())));
+  out_info_tdb.data.insert(
+      std::make_pair("arrivals_total", std::to_string(arrivals_total)));
+  out_info_tdb.data.insert(std::make_pair(
+      "arrivals_max_per_node", std::to_string(arrivals_max_per_node)));
 }
 
 } // namespace dynoplan

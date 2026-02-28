@@ -59,6 +59,15 @@ struct Options_trajopt {
   bool use_cable_complementarity = true;
   double cable_complementarity_weight = 10.0;
 
+  // Optional overrides for MujocoQuadsPayload regularization (negative = keep model defaults)
+  double mujoco_payload_k_acc = -1.0;
+  double mujoco_payload_reg_w_quat = -1.0;
+  double mujoco_payload_reg_w_vel = -1.0;
+  double mujoco_payload_reg_w_ang_vel = -1.0;
+  double mujoco_payload_reg_w_payload_pos = -1.0;
+  double mujoco_payload_reg_w_quad_pos = -1.0;
+  double mujoco_payload_reg_w_cable_dir = -1.0;
+
   void add_options(po::options_description &desc);
 
   void __read_from_node(const YAML::Node &node);
