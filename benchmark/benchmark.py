@@ -2113,7 +2113,7 @@ def get_cost_evolution(ax, file: str, **kwargs):
         for traj in trajs_opt:
             tts = float(traj["time_stamp"]) / 1000
             # Detect garbage/uninitialized timestamp (e.g. RRT which doesn't set it)
-            if tts < 1.0 and bench_start is not None:
+            if tts <= 0.0 and bench_start is not None:
                 tts = _os.path.getmtime(file) - bench_start
             cs = traj["cost"]
             feas = traj["feasible"]
