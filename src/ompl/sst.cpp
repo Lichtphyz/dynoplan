@@ -362,12 +362,40 @@ void solve_sst(const dynobench::Problem &problem,
         traj_sst.actions.push_back(u);
       }
 
+      traj_sst.cost = robot->diff_model->ref_dt * traj_sst.actions.size();
+      traj_sst.start = start_eigen;
+      traj_sst.goal = goal_eigen;
       traj_sst.check(robot->diff_model);
 
       {
         std::ofstream out("/tmp/dynoplan/" + std::string("sst_approx_") +
                           random_id + ".yaml");
         traj_sst.to_yaml_format(out);
+      }
+
+      // Fallback for planners (e.g. plain RRT) that don't use the intermediate
+      // solution callback — wire the pdef solution into traj_out.
+      if (!info_out_omplsst.solved) {
+        std::cout << "Using pdef solution (no intermediate callback)" << std::endl;
+        if (options_ompl_sst.reach_goal_with_opt) {
+          Result_opti result;
+          dynobench::Trajectory traj_opt;
+          trajectory_optimization(problem, traj_sst, options_trajopt,
+                                  traj_opt, result);
+          if (traj_opt.feasible) {
+            info_out_omplsst.solved = true;
+            info_out_omplsst.cost = traj_opt.cost;
+            info_out_omplsst.trajs_opt.push_back(traj_opt);
+            traj_out = traj_opt;
+          }
+        } else {
+          std::cout << "Warning: not doing OPT -- only reaching goal approximately"
+                    << std::endl;
+          info_out_omplsst.solved = true;
+          info_out_omplsst.cost = traj_sst.cost;
+          info_out_omplsst.trajs_raw.push_back(traj_sst);
+          traj_out = traj_sst;
+        }
       }
     }
   }

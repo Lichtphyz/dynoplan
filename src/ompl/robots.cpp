@@ -25,6 +25,8 @@
 
 #include "dynobench/acrobot.hpp"
 #include "dynobench/car.hpp"
+#include "dynobench/car0.hpp"
+#include "dynobench/car2.hpp"
 #include "dynobench/planar_rotor.hpp"
 #include "dynobench/planar_rotor_pole.hpp"
 #include "dynobench/quadrotor.hpp"
@@ -2584,6 +2586,236 @@ protected:
   };
 };
 
+
+class RobotCarNoTrailer : public RobotOmpl {
+  using StateSpace = ob::SE2StateSpace;
+public:
+  virtual ~RobotCarNoTrailer() {}
+  RobotCarNoTrailer(std::shared_ptr<dynobench::Model_car0> diff_model)
+      : RobotOmpl(diff_model) {
+    auto space(std::make_shared<StateSpace>());
+    auto cspace(std::make_shared<oc::RealVectorControlSpace>(space, 2));
+    ob::RealVectorBounds cbounds(2);
+    ob::RealVectorBounds position_bounds(2);
+    for (size_t i = 0; i < 2; i++) {
+      cbounds.setLow(i, diff_model->u_lb(i));
+      cbounds.setHigh(i, diff_model->u_ub(i));
+      position_bounds.setLow(i, diff_model->x_lb(i));
+      position_bounds.setHigh(i, diff_model->x_ub(i));
+    }
+    space->setBounds(position_bounds);
+    cspace->setBounds(cbounds);
+    si_ = std::make_shared<oc::SpaceInformation>(space, cspace);
+  }
+  virtual void toEigen(const ompl::base::State *x_ompl,
+                       Eigen::Ref<Eigen::VectorXd> x_eigen) override {
+    DYNO_CHECK_EQ(x_eigen.size(), 3, AT);
+    auto s = x_ompl->as<StateSpace::StateType>();
+    x_eigen(0) = s->getX();
+    x_eigen(1) = s->getY();
+    x_eigen(2) = s->getYaw();
+  }
+  virtual void toEigenU(const ompl::control::Control *control,
+                        Eigen::Ref<Eigen::VectorXd> u_eigen) override {
+    assert(u_eigen.size() == 2);
+    const double *ctrl =
+        control->as<ompl::control::RealVectorControlSpace::ControlType>()->values;
+    u_eigen(0) = ctrl[0];
+    u_eigen(1) = ctrl[1];
+  }
+  virtual void fromEigen(ompl::base::State *x_ompl,
+                         const Eigen::Ref<const Eigen::VectorXd> &x_eigen) override {
+    assert(x_eigen.size() == 3);
+    auto s = x_ompl->as<StateSpace::StateType>();
+    s->setX(x_eigen(0));
+    s->setY(x_eigen(1));
+    s->setYaw(x_eigen(2));
+  }
+  virtual void enforceBounds(ompl::base::State *x) const override {
+    auto x_typed = x->as<StateSpace::StateType>();
+    ob::SO2StateSpace SO2;
+    SO2.enforceBounds(x_typed->as<ob::SO2StateSpace::StateType>(1));
+  }
+  virtual fcl::Transform3d getTransform(const ompl::base::State *state,
+                                        size_t /*part*/) override {
+    auto s = state->as<StateSpace::StateType>();
+    fcl::Transform3d result;
+    result = Eigen::Translation<double, 3>(fcl::Vector3d(s->getX(), s->getY(), 0));
+    result.rotate(Eigen::AngleAxisd(s->getYaw(), Eigen::Vector3d::UnitZ()));
+    return result;
+  }
+  virtual void setPosition(ompl::base::State *state,
+                           const fcl::Vector3d position) override {
+    auto s = state->as<StateSpace::StateType>();
+    s->setX(position(0));
+    s->setY(position(1));
+  }
+};
+
+class RobotCar2 : public RobotOmpl {
+public:
+  virtual ~RobotCar2() {}
+
+  RobotCar2(std::shared_ptr<dynobench::Model_car2> model)
+      : RobotOmpl(model) {
+    auto space(std::make_shared<StateSpace>(model->params.distance_weights));
+    ob::RealVectorBounds position_bounds(2);
+    for (size_t i = 0; i < 2; i++) {
+      position_bounds.setLow(i, diff_model->x_lb(i));
+      position_bounds.setHigh(i, diff_model->x_ub(i));
+    }
+    space->setPositionBounds(position_bounds);
+
+    ob::RealVectorBounds vel_bounds(1);
+    vel_bounds.setLow(diff_model->x_lb(3));
+    vel_bounds.setHigh(diff_model->x_ub(3));
+    space->setVelocityBounds(vel_bounds);
+
+    ob::RealVectorBounds steer_bounds(1);
+    steer_bounds.setLow(diff_model->x_lb(4));
+    steer_bounds.setHigh(diff_model->x_ub(4));
+    space->setSteeringBounds(steer_bounds);
+
+    auto cspace(std::make_shared<oc::RealVectorControlSpace>(space, 2));
+    ob::RealVectorBounds cbounds(2);
+    for (size_t i = 0; i < 2; i++) {
+      cbounds.setLow(i, diff_model->u_lb(i));
+      cbounds.setHigh(i, diff_model->u_ub(i));
+    }
+    cspace->setBounds(cbounds);
+    si_ = std::make_shared<oc::SpaceInformation>(space, cspace);
+  }
+
+  virtual void toEigen(const ompl::base::State *x_ompl,
+                       Eigen::Ref<Eigen::VectorXd> x_eigen) override {
+    assert(x_eigen.size() == 5);
+    auto s = x_ompl->as<StateSpace::StateType>();
+    x_eigen(0) = s->getX();
+    x_eigen(1) = s->getY();
+    x_eigen(2) = s->getYaw();
+    x_eigen(3) = s->getVelocity();
+    x_eigen(4) = s->getSteering();
+  }
+
+  virtual void toEigenU(const ompl::control::Control *control,
+                        Eigen::Ref<Eigen::VectorXd> u_eigen) override {
+    assert(u_eigen.size() == 2);
+    const double *ctrl =
+        control->as<ompl::control::RealVectorControlSpace::ControlType>()->values;
+    u_eigen(0) = ctrl[0];
+    u_eigen(1) = ctrl[1];
+  }
+
+  virtual void fromEigen(ompl::base::State *x_ompl,
+                         const Eigen::Ref<const Eigen::VectorXd> &x_eigen) override {
+    assert(x_eigen.size() == 5);
+    auto s = x_ompl->as<StateSpace::StateType>();
+    s->setX(x_eigen(0));
+    s->setY(x_eigen(1));
+    s->setYaw(x_eigen(2));
+    s->setVelocity(x_eigen(3));
+    s->setSteering(x_eigen(4));
+  }
+
+  virtual void enforceBounds(ompl::base::State *x) const override {
+    auto x_typed = x->as<StateSpace::StateType>();
+    ob::SO2StateSpace SO2;
+    SO2.enforceBounds(x_typed->as<ob::SO2StateSpace::StateType>(1));
+  }
+
+  virtual fcl::Transform3d getTransform(const ompl::base::State *state,
+                                        size_t /*part*/) override {
+    auto s = state->as<StateSpace::StateType>();
+    fcl::Transform3d result;
+    result = Eigen::Translation<double, 3>(fcl::Vector3d(s->getX(), s->getY(), 0));
+    result.rotate(Eigen::AngleAxisd(s->getYaw(), Eigen::Vector3d::UnitZ()));
+    return result;
+  }
+
+  virtual void setPosition(ompl::base::State *state,
+                           const fcl::Vector3d position) override {
+    auto s = state->as<StateSpace::StateType>();
+    s->setX(position(0));
+    s->setY(position(1));
+  }
+
+protected:
+  class StateSpace : public ob::CompoundStateSpace {
+  public:
+    class StateType : public ob::CompoundStateSpace::StateType {
+    public:
+      StateType() = default;
+      double getX()        const { return as<ob::RealVectorStateSpace::StateType>(0)->values[0]; }
+      double getY()        const { return as<ob::RealVectorStateSpace::StateType>(0)->values[1]; }
+      double getYaw()      const { return as<ob::SO2StateSpace::StateType>(1)->value; }
+      double getVelocity() const { return as<ob::RealVectorStateSpace::StateType>(2)->values[0]; }
+      double getSteering() const { return as<ob::RealVectorStateSpace::StateType>(3)->values[0]; }
+      void setX(double v)        { as<ob::RealVectorStateSpace::StateType>(0)->values[0] = v; }
+      void setY(double v)        { as<ob::RealVectorStateSpace::StateType>(0)->values[1] = v; }
+      void setYaw(double v)      { as<ob::SO2StateSpace::StateType>(1)->value = v; }
+      void setVelocity(double v) { as<ob::RealVectorStateSpace::StateType>(2)->values[0] = v; }
+      void setSteering(double v) { as<ob::RealVectorStateSpace::StateType>(3)->values[0] = v; }
+    };
+
+    StateSpace(Eigen::VectorXd weights) {
+      assert(weights.size() == 4);
+      setName("Car2SO" + getName());
+      type_ = ob::STATE_SPACE_TYPE_COUNT + 1;
+      addSubspace(std::make_shared<ob::RealVectorStateSpace>(2), weights(0)); // x, y
+      addSubspace(std::make_shared<ob::SO2StateSpace>(),          weights(1)); // yaw
+      addSubspace(std::make_shared<ob::RealVectorStateSpace>(1), weights(2)); // v
+      addSubspace(std::make_shared<ob::RealVectorStateSpace>(1), weights(3)); // phi
+      lock();
+    }
+
+    ~StateSpace() override = default;
+
+    void setPositionBounds(const ob::RealVectorBounds &bounds) {
+      as<ob::RealVectorStateSpace>(0)->setBounds(bounds);
+    }
+    void setVelocityBounds(const ob::RealVectorBounds &bounds) {
+      as<ob::RealVectorStateSpace>(2)->setBounds(bounds);
+    }
+    void setSteeringBounds(const ob::RealVectorBounds &bounds) {
+      as<ob::RealVectorStateSpace>(3)->setBounds(bounds);
+    }
+
+    ob::State *allocState() const override {
+      auto *state = new StateType();
+      allocStateComponents(state);
+      return state;
+    }
+    void freeState(ob::State *state) const override {
+      CompoundStateSpace::freeState(state);
+    }
+
+    void registerProjections() override {
+      class DefaultProjection : public ob::ProjectionEvaluator {
+      public:
+        DefaultProjection(const ob::StateSpace *space)
+            : ob::ProjectionEvaluator(space) {}
+        unsigned int getDimension() const override { return 2; }
+        void defaultCellSizes() override {
+          cellSizes_.resize(2);
+          bounds_ = space_->as<ob::CompoundStateSpace>()
+                        ->as<ob::RealVectorStateSpace>(0)->getBounds();
+          cellSizes_[0] = (bounds_.high[0] - bounds_.low[0]) /
+                          ompl::magic::PROJECTION_DIMENSION_SPLITS;
+          cellSizes_[1] = (bounds_.high[1] - bounds_.low[1]) /
+                          ompl::magic::PROJECTION_DIMENSION_SPLITS;
+        }
+        void project(const ob::State *state,
+                     Eigen::Ref<Eigen::VectorXd> projection) const override {
+          auto s = state->as<StateType>();
+          projection(0) = s->getX();
+          projection(1) = s->getY();
+        }
+      };
+      registerDefaultProjection(std::make_shared<DefaultProjection>(this));
+    }
+  };
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // See also
@@ -3013,8 +3245,13 @@ robot_factory_ompl(const dynobench::Problem &problem) {
         std::make_shared<Model_acrobot>(__robot_model_file, p_lb, p_ub));
   } else if (dynamics == "car_with_trailers") {
     out = std::make_shared<RobotCarFirstOrderWithTrailers>(
-        std::make_shared<Model_car_with_trailers>(__robot_model_file, p_lb,
-                                                  p_ub));
+        std::make_shared<Model_car_with_trailers>(__robot_model_file, p_lb, p_ub));
+  } else if (dynamics == "car_no_trailer") {
+    out = std::make_shared<RobotCarNoTrailer>(
+        std::make_shared<dynobench::Model_car0>(__robot_model_file, p_lb, p_ub));
+  } else if (dynamics == "car2") {
+    out = std::make_shared<RobotCar2>(
+        std::make_shared<dynobench::Model_car2>(__robot_model_file, p_lb, p_ub));
   } else {
     ERROR_WITH_INFO("dynamics not implemented");
   }

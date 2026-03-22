@@ -212,7 +212,7 @@ bench_cfg = args.bench_cfg
 file_in = args.file_in
 dynamics = args.dynamics
 
-MAX_TIME_PLOTS = 120
+MAX_TIME_PLOTS = 900
 
 
 do_compare = False
@@ -353,6 +353,7 @@ def create_empty_env(start: List, goal: List, robot_model: str):
 
 color_map = {
     "sst_v0": "red",
+    "sst_rrt_v0": "cyan",
     "geo_v0": "green",
     "geo_v1": "cyan",
     "idbastar_v0": "blue",
@@ -1798,10 +1799,23 @@ def compare(files: List[str], interactive: bool = False):
         "cost_at_05",
         "cost_at_10",
         "cost_at_20",
+        "cost_at_30",
+        "cost_at_60",
+        "cost_at_120",
+        "cost_at_300",
+        "last_cost",
+        "length_at_01",
+        "length_at_05",
+        "length_at_10",
+        "length_at_20",
+        "length_at_30",
+        "length_at_60",
+        "length_at_120",
+        "length_at_300",
+        "last_length",
         "success_rate",
         "cost_first_solution",
         "time_first_solution",
-        "last_cost",
     ]
     fields.sort()
 
@@ -1929,7 +1943,7 @@ def compare(files: List[str], interactive: bool = False):
         "quadrotor_0/window": "Quadrotor -  window",
         "unicycle_first_order_0/bugtrap_0": "Unicycle1 - bugtrap",
     }
-    Dalg2label = {"idbastar_v0": "IDBA*", "sst_v0": "SST*", "geo_v0": "RRT*-TO"}
+    Dalg2label = {"idbastar_v0": "IDBA*", "sst_v0": "SST*", "geo_v0": "RRT*-TO", "sst_rrt_v0": "RRT"}
 
     counter = 0
     for problem in all_problems:
@@ -2076,11 +2090,20 @@ def make_videos(robot: str, problem: str, file: str):
 
 
 def get_cost_evolution(ax, file: str, **kwargs):
+    import os as _os
+    from datetime import datetime as _dt
     print(f"loading file {file}")
     with open(file, "r") as f:
         data = yaml.load(f, yaml.SafeLoader)
 
     trajs_opt = data["trajs_opt"]
+
+    # Compute benchmark start time from directory timestamp (YYYY-MM-DD--HH-MM-SS)
+    dir_name = _os.path.basename(_os.path.dirname(file))
+    try:
+        bench_start = _dt.strptime(dir_name, "%Y-%m-%d--%H-%M-%S").timestamp()
+    except ValueError:
+        bench_start = None
 
     time_cost_pairs = []
 
@@ -2089,6 +2112,9 @@ def get_cost_evolution(ax, file: str, **kwargs):
     if trajs_opt is not None:
         for traj in trajs_opt:
             tts = float(traj["time_stamp"]) / 1000
+            # Detect garbage/uninitialized timestamp (e.g. RRT which doesn't set it)
+            if tts < 1.0 and bench_start is not None:
+                tts = _os.path.getmtime(file) - bench_start
             cs = traj["cost"]
             feas = traj["feasible"]
             if feas:
@@ -2112,6 +2138,56 @@ def get_cost_evolution(ax, file: str, **kwargs):
 
     ax.step(ts, cs, color=kwargs.get("color", "blue"), alpha=0.3, where="post")
     return time_cost_pairs
+
+
+def get_path_length_evolution(ax, file: str, **kwargs):
+    """Like get_cost_evolution but tracks path length (metres) over wall time.
+
+    Reads trajs_opt from the main _out.yaml (same source as get_cost_evolution)
+    so that all intermediate solutions are captured for SST* and iDB-A* alike.
+    Falls back gracefully if no feasible trajectory is ever found.
+    """
+    import numpy as np
+
+    def _path_length(states):
+        total = 0.0
+        for i in range(len(states) - 1):
+            dx = states[i + 1][0] - states[i][0]
+            dy = states[i + 1][1] - states[i][1]
+            total += (dx ** 2 + dy ** 2) ** 0.5
+        return total
+
+    with open(file, "r") as f:
+        data = yaml.load(f, yaml.SafeLoader)
+
+    trajs_opt = data.get("trajs_opt") or []
+
+    time_length_pairs = []
+    best_length = 1e10
+
+    for traj in trajs_opt:
+        if not traj.get("feasible"):
+            continue
+        states = traj.get("states") or []
+        if len(states) < 2:
+            continue
+        # time_stamp in trajs_opt is in milliseconds (same as get_cost_evolution)
+        tts = float(traj.get("time_stamp", 0)) / 1000.0
+        length = _path_length(states)
+        if length < best_length:
+            time_length_pairs.append([tts, length])
+            best_length = length
+
+    if not time_length_pairs:
+        time_length_pairs.append([float("nan"), float("nan")])
+
+    ts = [x[0] for x in time_length_pairs]
+    ls = [x[1] for x in time_length_pairs]
+    ts.append(MAX_TIME_PLOTS)
+    ls.append(ls[-1])
+
+    ax.step(ts, ls, color=kwargs.get("color", "blue"), alpha=0.3, where="post")
+    return time_length_pairs
 
 
 def get_av_cost_new(all_costs_np) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -2361,7 +2437,7 @@ def analyze_runs(
 
     print(f"files ", [f.name for f in files])
 
-    fig, ax = plt.subplots(2, 1, sharex=True)
+    fig, ax = plt.subplots(3, 1, sharex=True)
     fig.suptitle(problem)
 
     T = MAX_TIME_PLOTS  # max time
@@ -2369,6 +2445,7 @@ def analyze_runs(
     times = np.linspace(0, T, int(T / dt) + 1)
 
     all_costs = []
+    all_lengths = []
 
     first_solution = []
     raw_data = []
@@ -2378,6 +2455,7 @@ def analyze_runs(
         # mean = np.array( (int(T / dt) + 1) * [ np.nan] )
         # std = np.array( (int(T / dt) + 1) * [ np.nan] )
         all_costs_np = np.array([(int(T / dt) + 1) * [np.nan]])
+        all_lengths_np = np.array([(int(T / dt) + 1) * [np.nan]])
 
     else:
         for file in [str(f) for f in files]:
@@ -2395,10 +2473,24 @@ def analyze_runs(
 
             f = interp1d(t, c, kind="previous")
             cost_times = f(times)
-            # print(cost_times)
             all_costs.append(cost_times)
 
+            # path length over time
+            time_length_pairs = get_path_length_evolution(ax[1], file, **kwargs)
+            tl = [x[0] for x in time_length_pairs]
+            ll = [x[1] for x in time_length_pairs]
+            tl.insert(0, 0)
+            ll.insert(0, np.nan)
+            tl.append(T)
+            ll.append(ll[-1])
+            if any(np.isnan(x) for x in tl):
+                all_lengths.append(np.full_like(times, np.nan))
+            else:
+                fl = interp1d(tl, ll, kind="previous")
+                all_lengths.append(fl(times))
+
         all_costs_np = np.array(all_costs)
+        all_lengths_np = np.array(all_lengths)
     # print("all_costs_np")
     # print(all_costs_np)
     # print(all_costs_np.shape)
@@ -2432,6 +2524,12 @@ def analyze_runs(
     cost_at_5 = mean.tolist()[int(5 / dt)]
     cost_at_10 = mean.tolist()[int(10 / dt)]
     cost_at_20 = mean.tolist()[int(20 / dt)]
+    cost_at_30 = mean.tolist()[int(30 / dt)]
+    cost_at_60 = mean.tolist()[int(60 / dt)]
+    cost_at_120 = mean.tolist()[int(120 / dt)]
+    cost_at_300 = mean.tolist()[int(300 / dt)]
+
+    # path length at same time cutoffs (computed after mean_len is available below)
 
     # cost of first solution
 
@@ -2452,18 +2550,37 @@ def analyze_runs(
         times,
         mean_ub,
         mean_lb,
-        # mean + std,
-        # mean - std,
         facecolor="blue",
         alpha=0.2,
     )
     ax[0].set_ylabel("cost")
 
-    # ax[1].plot(times, success)
-    ax[1].step(times, success, where="post")
+    # path length subplot
+    mean_len, mean_len_lb, mean_len_ub = get_av_cost_new(all_lengths_np)
+    mean_len_list = mean_len.tolist()
+    length_at_1   = mean_len_list[int(1 / dt)]
+    length_at_5   = mean_len_list[int(5 / dt)]
+    length_at_10  = mean_len_list[int(10 / dt)]
+    length_at_20  = mean_len_list[int(20 / dt)]
+    length_at_30  = mean_len_list[int(30 / dt)]
+    length_at_60  = mean_len_list[int(60 / dt)]
+    length_at_120 = mean_len_list[int(120 / dt)]
+    length_at_300 = mean_len_list[int(300 / dt)]
+    last_length   = mean_len_list[-1]
+    ax[1].step(times, mean_len, color="green", where="post")
+    ax[1].fill_between(
+        times,
+        mean_len_ub,
+        mean_len_lb,
+        facecolor="green",
+        alpha=0.2,
+    )
+    ax[1].set_ylabel("path length [m]")
 
-    ax[1].set_xlabel("time [s]")
-    ax[1].set_ylabel("success %")
+    # success rate (shifted from ax[1] to ax[2])
+    ax[2].step(times, success, where="post")
+    ax[2].set_xlabel("time [s]")
+    ax[2].set_ylabel("success %")
 
     # ax[0].set_ylim([0, 30])
     # ax[1].set_xlim([0, 20])
@@ -2484,7 +2601,20 @@ def analyze_runs(
     data_out["cost_at_05"] = cost_at_5
     data_out["cost_at_10"] = cost_at_10
     data_out["cost_at_20"] = cost_at_20
+    data_out["cost_at_30"] = cost_at_30
+    data_out["cost_at_60"] = cost_at_60
+    data_out["cost_at_120"] = cost_at_120
+    data_out["cost_at_300"] = cost_at_300
     data_out["last_cost"] = last_cost
+    data_out["length_at_01"] = length_at_1
+    data_out["length_at_05"] = length_at_5
+    data_out["length_at_10"] = length_at_10
+    data_out["length_at_20"] = length_at_20
+    data_out["length_at_30"] = length_at_30
+    data_out["length_at_60"] = length_at_60
+    data_out["length_at_120"] = length_at_120
+    data_out["length_at_300"] = length_at_300
+    data_out["last_length"] = last_length
 
     data_out["cost_mean"] = mean.tolist()
 

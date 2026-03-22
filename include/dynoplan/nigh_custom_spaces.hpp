@@ -293,6 +293,23 @@ ompl::NearestNeighbors<_T> *nigh_factory(
     DYNO_CHECK_EQ(w.size(), 4, AT);
     __SpaceUni2 space(w(0), w(1), w(2), w(3));
     out = new NearestNeighborsNigh<_T, __SpaceUni2>(space, data_to_key);
+
+  } else if (startsWith(name, "car_dyn")) {
+    // car_dyn_v0: dynamic car (car2), 5 states (x, y, yaw, v, phi)
+
+    auto data_to_key = [robot, fun](_T const &m) {
+      using Vector5d = Eigen::Matrix<double, 5, 1>;
+      using Vector1d = Eigen::Matrix<double, 1, 1>;
+      const ob::State *s = fun(m);
+      Vector5d __x;
+      robot->toEigen(s, __x);
+      return std::tuple(Eigen::Vector2d(__x.head(2)), __x(2), Vector1d(__x(3)),
+                        Vector1d(__x(4)));
+    };
+
+    DYNO_CHECK_EQ(w.size(), 4, AT);
+    __SpaceUni2 space(w(0), w(1), w(2), w(3));
+    out = new NearestNeighborsNigh<_T, __SpaceUni2>(space, data_to_key);
   }
 
   else if (startsWith(name, "quad2dpole")) {
@@ -367,6 +384,20 @@ ompl::NearestNeighbors<_T> *nigh_factory(
     // out = new NearestNeighborsNigh<_T, SpaceQuad3d>(data_to_key);
     out = new NearestNeighborsNigh<_T, __SpaceQuad3d>(space, data_to_key);
 
+  } else if (startsWith(name, "car1_t")) {
+    // car1_t0: trailer-less car, 3 states (x, y, theta)
+
+    auto data_to_key = [robot, fun](_T const &m) {
+      const ob::State *s = fun(m);
+      Eigen::Vector3d __x;
+      robot->toEigen(s, __x);
+      return std::tuple(Eigen::Vector2d(__x.head(2)), __x(2));
+    };
+
+    DYNO_CHECK_EQ(w.size(), 2, AT);
+    __Space space(double(w(0)), double(w(1)));
+    out = new NearestNeighborsNigh<_T, __Space>(space, data_to_key);
+
   } else if (startsWith(name, "car1")) {
 
     auto data_to_key = [robot, fun](_T const &m) {
@@ -430,7 +461,10 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
       out = new NearestNeighborsNigh<_T, __SpaceWithCost>(space, data_to_key);
     }
 
-  } else if (startsWith(name, "unicycle2")) {
+  } else if (startsWith(name, "unicycle2") ||
+             startsWith(name, "car_dyn")) {
+    // unicycle2: 5 states (x, y, yaw, v, omega)
+    // car_dyn_v0: 5 states (x, y, yaw, v, phi)
 
     if (cost_scale < 0) {
       auto data_to_key = [robot, fun](_T const &m) {
@@ -554,6 +588,18 @@ ompl::NearestNeighbors<_T> *nigh_factory2(
     // out = new NearestNeighborsNigh<_T, SpaceQuad3d>(data_to_key);
     out = new NearestNeighborsNigh<_T, __SpaceQuad3d>(space, data_to_key);
 
+  } else if (startsWith(name, "car1_t")) {
+    // car1_t0: trailer-less car, 3 states (x, y, theta)
+
+    auto data_to_key = [robot, fun](_T const &m) {
+      Eigen::Vector3d __x = fun(m);
+      return std::tuple(Eigen::Vector2d(__x.head(2)), __x(2));
+    };
+
+    DYNO_CHECK_EQ(w.size(), 2, AT);
+    __Space space(double(w(0)), double(w(1)));
+    out = new NearestNeighborsNigh<_T, __Space>(space, data_to_key);
+
   } else if (startsWith(name, "car1")) {
 
     auto data_to_key = [robot, fun](_T const &m) {
@@ -617,7 +663,10 @@ ompl::NearestNeighbors<_T> *nigh_factory_t(
       out = new NearestNeighborsNigh<_T, __SpaceWithCost>(space, data_to_key);
     }
 
-  } else if (startsWith(name, "unicycle2")) {
+  } else if (startsWith(name, "unicycle2") ||
+             startsWith(name, "car_dyn")) {
+    // unicycle2: 5 states (x, y, yaw, v, omega)
+    // car_dyn_v0: 5 states (x, y, yaw, v, phi)
 
     if (cost_scale < 0) {
       auto data_to_key = [robot, fun, reverse_search](_T const &m) {
@@ -674,6 +723,18 @@ ompl::NearestNeighbors<_T> *nigh_factory_t(
     __SpaceIntegrator2_3d space(w(0), w(1));
     out =
         new NearestNeighborsNigh<_T, __SpaceIntegrator2_3d>(space, data_to_key);
+
+  } else if (startsWith(name, "car1_t")) {
+    // car1_t0: trailer-less car, 3 states (x, y, theta)
+
+    auto data_to_key = [robot, fun, reverse_search](_T const &m) {
+      Eigen::Vector3d __x = fun(m, reverse_search);
+      return std::tuple(Eigen::Vector2d(__x.head(2)), __x(2));
+    };
+
+    DYNO_CHECK_EQ(w.size(), 2, AT);
+    __Space space(double(w(0)), double(w(1)));
+    out = new NearestNeighborsNigh<_T, __Space>(space, data_to_key);
 
   } else if (startsWith(name, "car1")) {
 

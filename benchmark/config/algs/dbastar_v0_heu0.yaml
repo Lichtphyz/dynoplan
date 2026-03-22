@@ -29,6 +29,16 @@ car1_v0:
     max_motions: 400
     delta: .3
 
+car1_t0:
+  default:
+    max_motions: 400
+    delta: .3
+
+car_dyn_v0:
+  default:
+    max_motions: 400
+    delta: .3
+
 quad3d_v0:
   default:
     search_timelimit: 60000 # in ms

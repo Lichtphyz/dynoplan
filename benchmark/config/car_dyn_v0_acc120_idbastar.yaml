@@ -1,0 +1,13 @@
+trials: 15
+timelimit: 60
+n_cores: 14
+problems:
+  - car_dyn_v0_acc120/Race_Track_Zig
+  - car_dyn_v0_acc120/Race_Track_Loop
+  - car_dyn_v0_acc120/Race_Track_Whole
+  - car_dyn_v0_acc120/narrow_short
+  - car_dyn_v0_acc120/open_blocks_small
+algs:
+  - idbastar_v0
+  - sst_v0
+  - sst_rrt_v0

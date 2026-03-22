@@ -185,6 +185,20 @@ generate_problem(const Generate_params &gen_args,
       feats_run.push_back(state_feature);
     }
 
+    if (startsWith(gen_args.name, "car_dyn")) {
+      std::cout << "adding regularization on v and phi" << std::endl;
+
+      Vxd state_weights(nx);
+      state_weights.setZero();
+      state_weights(3) = 0.1; // velocity
+      state_weights(4) = 0.1; // steering angle
+      Vxd state_ref = Vxd::Zero(nx);
+
+      ptr<Cost> state_feature =
+          mk<State_cost>(nx, nu, nx, state_weights, state_ref);
+      feats_run.push_back(state_feature);
+    }
+
     if (startsWith(gen_args.name, "quad2d") &&
         !startsWith(gen_args.name, "quad2dpole")) {
       std::cout << "adding regularization on w and v" << std::endl;

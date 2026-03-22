@@ -36,6 +36,26 @@ car1_v0:
     goal_bias: 0.1
     min_control_duration: 2
     max_control_duration: 20
+car1_t0:
+  default:
+    goal_epsilon: 0.2
+    goal_bias: 0.1
+    min_control_duration: 2
+    max_control_duration: 20
+
+car_dyn_v0:
+  default:
+    goal_epsilon: 0.5
+    goal_bias: 0.1
+    min_control_duration: 2
+    max_control_duration: 20
+
+car_dyn_v0_acc120:
+  default:
+    goal_epsilon: 0.5
+    goal_bias: 0.1
+    min_control_duration: 2
+    max_control_duration: 20
 
 quad2d_v0:
   default:
@@ -86,3 +106,21 @@ quad3d_omplapp:
     pruning_radius: .1
     selection_radius: 1.
     custom_sampling: true
+unicycle2_v1:
+  default:
+    dummy: 0
+    goal_epsilon: .2
+    min_control_duration: 2
+    max_control_duration: 20
+unicycle2_v2:
+  default:
+    dummy: 0
+    goal_epsilon: .2
+    min_control_duration: 2
+    max_control_duration: 20
+unicycle2_v3:
+  default:
+    dummy: 0
+    goal_epsilon: .2
+    min_control_duration: 2
+    max_control_duration: 20

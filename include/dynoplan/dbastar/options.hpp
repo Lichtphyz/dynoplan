@@ -141,6 +141,9 @@ struct Options_dbastar {
   double heu_connection_radius = 1; // connection radius for ROADMAP heuristic
   bool use_nigh_nn = true;          // use nigh for nearest neighbor.
   bool check_cols = true;
+  double col_tol = 5e-2; // collision tolerance for the post-solve sanity check;
+                          // dt=0.01 systems work fine at 0.05; coarser dt
+                          // (e.g. 0.1) needs a larger value (e.g. 0.3)
 
   void add_options(po::options_description &desc);
 

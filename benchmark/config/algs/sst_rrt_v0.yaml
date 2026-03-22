@@ -1,0 +1,26 @@
+# Plain kinodynamic RRT - simplest baseline
+# Uses main_sst binary with planner=rrt
+reference: sst_v0  # inherit per-robot params from sst_v0
+
+default:
+  planner: rrt
+  sst_use_nigh: true
+  reach_goal_with_opt: 0  # RRT finds feasible paths; no post-optimization
+
+car_dyn_v0:
+  default:
+    planner: rrt
+    goal_epsilon: 0.5
+    goal_bias: 0.1
+    min_control_duration: 2
+    max_control_duration: 20
+    reach_goal_with_opt: 0
+
+car_dyn_v0_acc120:
+  default:
+    planner: rrt
+    goal_epsilon: 0.5
+    goal_bias: 0.1
+    min_control_duration: 2
+    max_control_duration: 20
+    reach_goal_with_opt: 0
