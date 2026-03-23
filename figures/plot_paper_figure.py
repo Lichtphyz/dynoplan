@@ -118,7 +118,7 @@ def plot_col(ax, env, metric, times):
 
 # ── layout ──────────────────────────────────────────────────────────────────
 n_rows = len(ENVS)
-fig, axes = plt.subplots(n_rows, 2, figsize=(7, 2.0 * n_rows))
+fig, axes = plt.subplots(n_rows, 2, figsize=(7, 1.8 * n_rows))
 times = np.linspace(0, TLIMIT, N_TIMES)
 
 for row, env in enumerate(ENVS):
@@ -138,6 +138,6 @@ for row, env in enumerate(ENVS):
 
 plt.tight_layout(h_pad=0.6, w_pad=1.0)
 
-out = '/home/dlicht/SCU/MotionPlanning/FinalProject/figures/paper_figure.pdf'
+out = '/home/dlicht/SCU/MotionPlanning/FinalProject/dynoplan/figures/cost_dist_over_time_figure.pdf'
 fig.savefig(out, bbox_inches='tight')
 print(f'Saved: {out}')

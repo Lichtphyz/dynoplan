@@ -152,6 +152,6 @@ for env_idx, (env_name, run_file, env_label) in enumerate(ENVS):
         ax_p.set_title(f't={imp["time_s"]:.1f}s\nc={imp["cost"]:.2f}',
                        fontsize=6, pad=2)
 
-out = '/home/dlicht/SCU/MotionPlanning/FinalProject/figures/idbastar_evolution.pdf'
+out = '/home/dlicht/SCU/MotionPlanning/FinalProject/dynoplan/figures/idbastar_evolution.pdf'
 fig.savefig(out, bbox_inches='tight')
 print(f'Saved: {out}')
