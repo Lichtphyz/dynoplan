@@ -1,0 +1,59 @@
+alg: sst
+time_stamp: 21-03-2026--13-50-00
+options_sst:
+  custom_sampling: 0
+  sst_use_nigh: 1
+  planner: rrt
+  timelimit: 60
+  goal_epsilon: 0.5
+  goal_bias: 0.1
+  selection_radius: 0.2
+  pruning_radius: 0.1
+  propagation_step_size: 0.1
+  min_control_duration: 2
+  max_control_duration: 20
+  reach_goal_with_opt: 1
+options_trajopt:
+  name: 
+  shift_repeat: 0
+  soft_control_bounds: 0
+  welf_format: 0
+  u_bound_scale: 1
+  interp: 0
+  ref_x0: 0
+  th_acceptnegstep: 0.3
+  states_reg: 0
+  solver_name: 
+  CALLBACKS: 1
+  solver_id: 0
+  use_finite_diff: 0
+  use_warmstart: 1
+  repair_init_guess: 1
+  control_bounds: 1
+  th_stop: 0.01
+  init_reg: 100
+  th_acceptnegstep: 0.3
+  noise_level: 1e-05
+  max_iter: 50
+  window_optimize: 20
+  window_shift: 10
+  max_mpc_iterations: 50
+  debug_file_name: /tmp/debug_file.yaml
+  k_linear: 10
+  k_contour: 10
+  weight_goal: 200
+  collision_weight: 100
+  smooth_traj: 1
+  tsearch_max_rate: 2
+  tsearch_min_rate: 0.3
+  tsearch_num_check: 10
+  linear_search: 0
+solved: 0
+solved_raw: 0
+cost: 1e+08
+trajs_opt_size: 0
+trajs_opt: 
+trajs_raw_size: 0
+trajs_raw:
+infos_opt:
+infos_raw:
