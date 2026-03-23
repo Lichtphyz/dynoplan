@@ -1,6 +1,6 @@
-# SCU Graduate Research Fork
+# SCU Graduate Student Fork
 
-This repository has been modified as part of a SAnta Clara University graduate course in motion planning.  Primarily for an exploratory project reproducing and benchmarking kinodynamic motion planning algorithms against learned trajectory policies (DiffusionPolicy / DiTree). The original Dynoplan codebase is largely unchanged except where noted below.
+This repository has been modified as part of a Santa Clara University graduate course in motion planning.  Primarily for an exploratory project reproducing and benchmarking kinodynamic motion planning algorithms against learned trajectory policies (DiffusionPolicy / DiTree). The original Dynoplan codebase is largely unchanged except where noted below.
 
 ## Key Files Added or Modified
 
