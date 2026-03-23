@@ -1,3 +1,45 @@
+# SCU Graduate Research Fork
+
+This repository has been modified as part of a SAnta Clara University graduate course in motion planning.  Primarily for an exploratory project reproducing and benchmarking kinodynamic motion planning algorithms against learned trajectory policies (DiffusionPolicy / DiTree). The original Dynoplan codebase is largely unchanged except where noted below.
+
+## Key Files Added or Modified
+
+### New Car Dynamics Model
+- `dynobench/models/car_dyn_v0_acc120.yaml` — A higher-performance car model (`car_dyn_v0_acc120`) with increased acceleration limits (`max_acc_abs: 12.0`) and tuned goal velocities per environment, enabling significantly faster solutions than the baseline car model.  This was done to facilitate comparison with DiTree "Race_Track" environments and their associated car.
+
+### New Environments
+- `dynobench/envs/car_dyn_v0_acc120/` — Six race track and obstacle environments configured for the `car_dyn_v0_acc120` model, including per-environment goal velocities tuned to match or exceed DiffusionPolicy reference times:
+  - `Race_Track_Zig.yaml`, `Race_Track_Loop.yaml`, `Race_Track_Whole.yaml`
+  - `narrow_short.yaml`, `open_blocks_small.yaml`, `Race_Track_Simple.yaml`
+
+### Benchmark Configuration
+- `benchmark/config/final_bench.yaml` — Primary benchmark configuration used to generate results (15 trials × 3 algorithms × 5 environments, 60 s time limit).
+
+### Benchmark Results Data
+- `results_new/car_dyn_v0_acc120/` — Committed run outputs (`run_*_out.yaml`) for all environments and algorithms at stamp `2026-03-21--13-49-53`. Used to reproduce all paper figures.
+
+### Figures and Analysis
+- `figures/` — Paper-ready figures and the scripts that generate them:
+  - `cost_dist_over_time_figure.pdf` — Cost and path length over planning time (3 algorithms, 5 environments)
+  - `cost_dist_over_time_figure_4alg.pdf` — Same figure extended with DiTree comparison
+  - `idbastar_evolution.pdf` — iDB-A* solution refinement over time (3 environments)
+  - `trajs_acc120_2026-03-21--13-49-53.png` — Trajectory overview across all environments and algorithms
+  - `figures/DP_data/` — DiTree (DiffusionPolicy + RRT) log data used for comparison
+  - `plot_paper_figure.py`, `plot_paper_figure_4alg.py`, `plot_idbastar_evolution.py`, `post_bench_acc120.py` — Figure generation scripts
+
+### Bug Fix
+- `dynobench/src/car2.cpp` — Fixed angle normalization in the iDB-A* heuristic for the car dynamics model, which caused crashes on certain environments.
+
+### Motion Primitives (not committed — large binary)
+- `dynomotions_full/car_dyn_v0_acc120_all.bin.sp.bin.msgpack` — 235,000 motion primitives generated for `car_dyn_v0_acc120`. Must be generated locally; see the Motion Primitives section below.
+
+
+---
+
+
+
+---
+
 # Dynoplan 🦖
 
 Note: We have just submitted a publication to T-RO. Preprint is available [here](https://arxiv.org/abs/2311.03553).
